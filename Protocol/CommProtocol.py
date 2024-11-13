@@ -10,6 +10,8 @@ CLIENT_CONNECTION_TYPE = 'ClientConnectionType'
 SERVER_CONNECTION_TYPE = 'ServerConnectionType'
 logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+HELLO_WORLD = "Hello!!!!"
+
 
 def write_to_log(msg):
     logging.info(msg)
