@@ -11,21 +11,31 @@ SERVER_CONNECTION_TYPE = 'ServerConnectionType'
 logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-
 def write_to_log(msg):
     logging.info(msg)
     print(msg)
 
 
 class ComProtocol:
-    def __init__(self, ip: str, port: int, connection_type: str, c_socket = None):
-        self.socket: socket = c_socket
+    ip: str
+    port: int
+    connection_type: str
+    socket: socket
+
+    def __init__(self):
         self.last_error = None
-        self.connection_type = connection_type
+
+    def attach(self, ip: str, port: int, c_socket: socket):
         self.ip = ip
         self.port = port
+        self.connection_type = CLIENT_CONNECTION_TYPE
+        self.socket = c_socket
 
-    def connect(self) -> bool:
+    def connect(self, ip: str, port: int, connection_type: str) -> bool:
+        self.ip = ip
+        self.port = port
+        self.connection_type = connection_type
+
         try:
             self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             if self.connection_type == CLIENT_CONNECTION_TYPE:
@@ -41,17 +51,14 @@ class ComProtocol:
             self.last_error = f"Exception in ComProtocol connect: {e}"
             return False
 
-    def accept_handler(self):
+    def accept_handler(self, timer_len: int):
         try:
-            """self.socket.settimeout(10)
-            available, null, null = select([self.socket], [], [], 0.1)
-            if available:"""
+            self.socket.settimeout(timer_len)
             return self.socket.accept()
-            """return None, None"""
 
         except Exception as e:
-            write_to_log(f"[ComProtocol] Exception on accept handler {e}")
-            self.last_error = f"Exception in ComProtocol accept handler: {e}"
+            #write_to_log(f"[ComProtocol] Exception on accept handler {e}")
+            #self.last_error = f"Exception in ComProtocol accept handler: {e}"
             return None, None
 
     def send(self, msg: str) -> bool:
@@ -69,8 +76,8 @@ class ComProtocol:
 
     def send_raw(self, raw: bytes):
         try:
-            raw_len = len( raw )
-            msg = self.format_value( str( raw_len ), True )
+            raw_len = len(raw)
+            msg = self.format_value(str(raw_len), True)
             self.socket.send(msg.encode())
             len_sent = 0
             while len_sent < raw_len:
@@ -84,8 +91,8 @@ class ComProtocol:
             self.last_error = f"Exception in ComProtocol send_raw: {e}"
             return False
 
-    def format_value(self, value: str, is_raw: bool ):
-        value_len = str( len( value ) ).zfill( HEADER_SIZE )
+    def format_value(self, value: str, is_raw: bool):
+        value_len = str(len(value)).zfill(HEADER_SIZE)
         return f"{ value_len }{ is_raw and 1 or 0 }{ value }"
 
     def raw_receive(self, length):
@@ -123,8 +130,3 @@ class ComProtocol:
 
 if __name__ == "__main__":
     pass
-
-
-
-
-
