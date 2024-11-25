@@ -1,6 +1,7 @@
 from Protocol.CommProtocol import *
 import threading
 
+
 class ClientHandle:
     comtocol: ComProtocol
     Thread: threading.Thread
@@ -10,10 +11,13 @@ class ClientHandle:
     def __init__(self, ip, port, socket_obj):
         self.comtocol = ComProtocol()
         self.comtocol.attach(ip, port, socket_obj)
+        self.connected = True
 
     def Handle_Client(self):
-
-
+        while self.connected:
+            data = self.comtocol.receive()
+            if data:
+                write_to_log(f"[ServerBL] received {data}")
 
 
 class ServerBL:
@@ -39,32 +43,42 @@ class ServerBL:
         try:
             if not self.comtocol.connect(ip, port, SERVER_CONNECTION_TYPE):
                 self.last_error = self.comtocol.return_error()
-                write_to_log(f"[ComProtocol] Exception on start server {self.last_error}")
+                write_to_log(f"[ServerBL] Exception on start server {self.last_error}")
                 return False
             return True
 
         except Exception as e:
-            write_to_log(f"[ComProtocol] Exception on accept handler {e}")
-            self.last_error = f"Exception in ComProtocol accept handler: {e}"
+            write_to_log(f"[ServerBL] Exception on accept handler {e}")
+            self.last_error = f"Exception in [ServerBL] accept handler: {e}"
             return False
 
     def connection_manager(self):
         self.flags["running"] = True
         try:
             while self.flags["running"]:
-                c_socket, c_addr = self.comtocol.accept_handler(5)
-                if c_socket:
+                cl_socket, cl_addr = self.comtocol.accept_handler(5)
+                if cl_socket:
+                    new_client = ClientHandle(cl_addr[0], cl_addr[1], cl_socket)
+                    thread = threading.Thread(target=new_client.Handle_Client())
+                    thread.start()
 
-
-
-
+                    write_to_log(f"[ServerBL] Active connection {threading.active_count() - 2}")
+        except Exception as e:
+            write_to_log(f"[ServerBL] Exception on accept handler {e}")
+            self.last_error = f"Exception in [ServerBL] accept handler: {e}"
+            return False
 
 
 if __name__ == "__main__":
-    comtocol = ComProtocol()
+    SerBL = ServerBL()
+    SerBL.init_protocols()
+    SerBL.start_server("0.0.0.0", 4565)
+    SerBL.connection_manager()
+
+    """comtocol = ComProtocol()
     comtocol.connect("0.0.0.0", 4565, SERVER_CONNECTION_TYPE)
     c_socket, c_addr = comtocol.accept_handler()
     client = ComProtocol()
     client.attach(c_addr[0], c_addr[1], c_socket)
     print(client.receive())
-    print(client.receive())
+    print(client.receive())"""

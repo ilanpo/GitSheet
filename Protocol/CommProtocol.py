@@ -119,9 +119,11 @@ class ComProtocol:
 
             data = self.socket.recv(length).decode()
             return data
+
         except Exception as e:
-            write_to_log(f"[ComProtocol] Exception on receive: {e}")
-            self.last_error = f"Exception in ComProtocol receive: {e}"
+
+            """write_to_log(f"[ComProtocol] Exception on receive: {e}")
+            self.last_error = f"Exception in ComProtocol receive: {e}")"""
             return None
 
     def is_valid(self) -> bool:
