@@ -17,7 +17,7 @@ class ClientHandle:
         while self.connected:
             data = self.comtocol.receive()
             if data:
-                write_to_log(f"[ServerBL] received {data}")
+                write_to_log(f"[ServerBL] received {data} from {self.comtocol.whos_there()}")
 
 
 class ServerBL:

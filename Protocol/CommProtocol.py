@@ -129,6 +129,9 @@ class ComProtocol:
     def is_valid(self) -> bool:
         return self.socket is not None
 
+    def whos_there(self):
+        return self.ip, self.port
+
 
 if __name__ == "__main__":
     pass
