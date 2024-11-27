@@ -8,6 +8,7 @@ CHUNK_SIZE = 1024
 LOG_FILE_PATH = 'Log_Global.txt'
 CLIENT_CONNECTION_TYPE = 'ClientConnectionType'
 SERVER_CONNECTION_TYPE = 'ServerConnectionType'
+DISCONNECT_MESSAGE = 'D1SC0NNECT'
 logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 

@@ -18,6 +18,9 @@ class ClientHandle:
             data = self.comtocol.receive()
             if data:
                 write_to_log(f"[ServerBL] received {data} from {self.comtocol.whos_there()}")
+                if data == DISCONNECT_MESSAGE:
+                    write_to_log("Got disconnect message!")
+                    self.connected = False
 
 
 class ServerBL:
@@ -59,10 +62,11 @@ class ServerBL:
                 cl_socket, cl_addr = self.comtocol.accept_handler(5)
                 if cl_socket:
                     new_client = ClientHandle(cl_addr[0], cl_addr[1], cl_socket)
-                    thread = threading.Thread(target=new_client.Handle_Client())
+                    thread = threading.Thread(target=new_client.Handle_Client)
+                    write_to_log(f"[ServerBL] Active connections: {threading.active_count()}")
                     thread.start()
-
-                    write_to_log(f"[ServerBL] Active connection {threading.active_count() - 2}")
+                if input() == 'STOP':
+                    self.flags["running"] = False
         except Exception as e:
             write_to_log(f"[ServerBL] Exception on accept handler {e}")
             self.last_error = f"Exception in [ServerBL] accept handler: {e}"
@@ -72,7 +76,7 @@ class ServerBL:
 if __name__ == "__main__":
     SerBL = ServerBL()
     SerBL.init_protocols()
-    SerBL.start_server("0.0.0.0", 4565)
+    SerBL.start_server("0.0.0.0", 6969)
     SerBL.connection_manager()
 
     """comtocol = ComProtocol()
