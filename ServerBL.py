@@ -12,15 +12,21 @@ class ClientHandle:
         self.comtocol = ComProtocol()
         self.comtocol.attach(ip, port, socket_obj)
         self.connected = True
+        self.last_error = "no error registered"
 
     def Handle_Client(self):
-        while self.connected:
-            data = self.comtocol.receive()
-            if data:
-                write_to_log(f"[ServerBL] received {data} from {self.comtocol.whos_there()}")
-                if data == DISCONNECT_MESSAGE:
-                    write_to_log("Got disconnect message!")
-                    self.connected = False
+        try:
+            while self.connected:
+                data = self.comtocol.receive()
+                if data:
+                    write_to_log(f"[ClientHandle] received {data} from {self.comtocol.whos_there()}")
+                    if data == DISCONNECT_MESSAGE:
+                        write_to_log("Got disconnect message!")
+                        self.connected = False
+        except Exception as e:
+            write_to_log(f"[ClientHandle] Exception on handle client {e}")
+            self.last_error = f"Exception in [ClientHandle] handle client: {e}"
+            return False
 
 
 class ServerBL:
@@ -34,7 +40,7 @@ class ServerBL:
         }
         self.last_error = "no error registered"
 
-        with open(LOG_FILE_PATH, "wb") as file:
+        with open(LOG_FILE_PATH, "wb"):
             pass
 
     def init_protocols(self):
@@ -51,8 +57,8 @@ class ServerBL:
             return True
 
         except Exception as e:
-            write_to_log(f"[ServerBL] Exception on accept handler {e}")
-            self.last_error = f"Exception in [ServerBL] accept handler: {e}"
+            write_to_log(f"[ServerBL] Exception on start server {e}")
+            self.last_error = f"Exception in [ServerBL] start server: {e}"
             return False
 
     def connection_manager(self):
@@ -68,8 +74,8 @@ class ServerBL:
                 if input() == 'STOP':
                     self.flags["running"] = False
         except Exception as e:
-            write_to_log(f"[ServerBL] Exception on accept handler {e}")
-            self.last_error = f"Exception in [ServerBL] accept handler: {e}"
+            write_to_log(f"[ServerBL] Exception on connection manager {e}")
+            self.last_error = f"Exception in [ServerBL] connection manager: {e}"
             return False
 
 
