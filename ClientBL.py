@@ -1,3 +1,5 @@
+import os.path
+
 from Protocol.CommProtocol import *
 
 
@@ -34,13 +36,21 @@ class ClientBl:
         msg = ""
         while msg != DISCONNECT_MESSAGE:
             msg = input()
-            self.comtocol.send(msg)
+
+            if msg.split(HEADER_SEPARATOR)[0] == "FILE":
+                file_name = msg.split(HEADER_SEPARATOR)[1]
+                self.comtocol.send(msg)
+                self.file_send(msg.split(HEADER_SEPARATOR)[1])
+
+    def file_send(self, file_name):
+        with open(file_name, "rb") as file:
+            self.comtocol.send_raw(file.read())
 
 
 if __name__ == "__main__":
     Client = ClientBl()
     Client.init_protocols()
-    Client.start_client("127.0.0.1", 6969)
+    Client.start_client("127.0.0.1", 36969)
     Client.console_handle()
 
     """comtocol = ComProtocol()

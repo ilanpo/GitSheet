@@ -9,6 +9,9 @@ class ClientHandle:
     port: int
 
     def __init__(self, ip, port, socket_obj):
+        self.headers = {
+            "file": "FILE"
+        }
         self.comtocol = ComProtocol()
         self.comtocol.attach(ip, port, socket_obj)
         self.connected = True
@@ -23,11 +26,29 @@ class ClientHandle:
                     if data == DISCONNECT_MESSAGE:
                         write_to_log("Got disconnect message!")
                         self.connected = False
+                    self.Handle_Message(data)
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on handle client {e}")
             self.last_error = f"Exception in [ClientHandle] handle client: {e}"
             return False
 
+    def Handle_Message(self, message):
+        if message.split(HEADER_SEPARATOR)[0] == self.headers["file"]:
+            self.file_reception(message)
+        else:
+            write_to_log(message)
+
+    def file_reception(self, message):
+        file_name = message.split(HEADER_SEPARATOR)[1]
+        try:
+            with open("file_name.png", "wb") as file:
+                raw = self.comtocol.receive()
+                file.write(raw)
+            return True
+        except Exception as e:
+            write_to_log(f"[ClientHandle] Exception on handle message {e}")
+            self.last_error = f"Exception in [ClientHandle] handle message: {e}"
+            return False
 
 class ServerBL:
     comtocol: ComProtocol
@@ -82,7 +103,7 @@ class ServerBL:
 if __name__ == "__main__":
     SerBL = ServerBL()
     SerBL.init_protocols()
-    SerBL.start_server("0.0.0.0", 6969)
+    SerBL.start_server("0.0.0.0", 36969)
     SerBL.connection_manager()
 
     """comtocol = ComProtocol()
