@@ -41,6 +41,8 @@ class ClientBl:
                 file_name = msg.split(HEADER_SEPARATOR)[1]
                 self.comtocol.send(msg)
                 self.file_send(msg.split(HEADER_SEPARATOR)[1])
+            else:
+                self.comtocol.send(msg)
 
     def file_send(self, file_name):
         with open(file_name, "rb") as file:

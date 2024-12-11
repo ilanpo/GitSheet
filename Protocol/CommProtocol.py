@@ -115,9 +115,7 @@ class ComProtocol:
     def receive(self):
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
-            write_to_log(length)
             is_raw = self.socket.recv(1).decode()
-            write_to_log(is_raw)
             if is_raw == "1":
                 length_raw = self.socket.recv(length).decode()
                 return self.raw_receive(int(length_raw))

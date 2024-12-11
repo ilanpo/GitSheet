@@ -35,8 +35,6 @@ class ClientHandle:
     def Handle_Message(self, message):
         if message.split(HEADER_SEPARATOR)[0] == self.headers["file"]:
             self.file_reception(message)
-        else:
-            write_to_log(message)
 
     def file_reception(self, message):
         file_name = message.split(HEADER_SEPARATOR)[1]
