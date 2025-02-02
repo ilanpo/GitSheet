@@ -107,6 +107,7 @@ class ComProtocol:
                 chunk_data = self.socket.recv(size)
                 raw_data += chunk_data
             return raw_data
+
         except Exception as e:
             write_to_log(f"[ComProtocol] Exception on receive_raw: {e}")
             self.last_error = f"Exception in ComProtocol receive_raw: {e}"
@@ -124,7 +125,6 @@ class ComProtocol:
             return data
 
         except Exception as e:
-
             """write_to_log(f"[ComProtocol] Exception on receive: {e}")
             self.last_error = f"Exception in ComProtocol receive: {e}")"""
             return None
