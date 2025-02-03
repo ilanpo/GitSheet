@@ -53,29 +53,94 @@ class DatabaseManager:
             {"name": name, "owner_id": owner_id, "settings": settings, "permission": permission, "veins": [], "nodes": []})
         return True, ins_info.inserted_id
 
-    def add_to_permission(self, project_name, user_id):
-        query = {"name": project_name}
+    # OBSOLETE use push to dict with collection as "projects" and operation as "add" instead.
+    """def add_to_permission(self, project_id, userid):
+        query = {"_id": project_id}
         perms = None
-        for x in self.projects_col.find_one(query, {"_id": 0, "permission": 1}):
-            print(x)
+        for in self.projects_col.find_one(query, {"_id": 0, "permission": 1}):
+            perms = x
         if perms:
             perms = set(perms)
-            perms.add(user_id)
+            perms.add(userid)
             perms = list(perms)
             x = self.projects_col.update_one(query, {"$set": {"permission": perms}})
             return x.acknowledged
+        return False"""
+
+    def fetch_id(self, item_name: str, item_collection: str):
+        query = {"name": item_name}
+        item = None
+
+        path_collection = {
+            "projects": self.projects_col,
+            "nodes": self.nodes_col,
+            "veins": self.veins_col,
+            "files": self.files_col
+        }
+
+        selected_collection = path_collection[item_collection]
+
+        for k, v in selected_collection.find_one(query, {"_id": 1}):
+            item = v
+
+        if item:
+            return True, item
+        else:
+            return False, None
+
+    def push_to_dict(self, dict_id, collection: str, operation: str, change, change_type:str):
+        query = {"_id": dict_id}
+        items = None
+
+        path_collection = {
+            "projects": self.projects_col,
+            "nodes": self.nodes_col,
+            "veins": self.veins_col,
+            "files": self.files_col
+        }
+
+        selected_collection = path_collection[collection]
+
+        path_operation = {
+            "add": items.add,
+            "remove": items.remove
+        }
+
+        selected_operation = path_operation[operation]
+
+        for k, v in selected_collection.find_one(query, {"_id": 0, f"{change_type}": 1}):
+            items = v
+
+        if items:
+            items = set(items)
+            selected_operation(change)
+            items = list(items)
+            x = selected_collection.update_one(query, {"$set": {f"{change_type}": items}})
+            return x.acknowledged
+
         return False
 
-    """def new_vein(self, project_id, permission: list, vein_data: str, settings: dict):
+    def new_node(self, project_id, permission: list, node_data: list, settings: dict):
+        ins_info = self.nodes_col.insert_one({"permission": permission, "node_data": node_data, "settings": settings})
+        node_id = ins_info.inserted_id
+        self.push_to_dict(project_id, "projects", "add", node_id, "node")
+        return node_id
+
+    def new_vein(self, project_id, permission: list, vein_data: str, settings: dict):
         ins_info = self.veins_col.insert_one({"permission": permission, "vein_data": vein_data, "settings": settings})
         vein_id = ins_info.inserted_id
-        project_update_info = """
+        self.push_to_dict(project_id, "projects", "add", vein_id, "vein")
+        return vein_id
 
+    def new_file(self, node_id, permission: list, file: bytes, settings: dict):
+        ins_info = self.files_col.insert_one({"permission": permission, "file": file, "settings": settings})
+        file_id = ins_info.inserted_id
+        self.push_to_dict(node_id, )
 
 
 if __name__ == "__main__":
     DB = DatabaseManager("mongodb://localhost:27017/")
     Success, user_id = DB.new_user("dish11111", "Roblox")
     print(DB.new_project("zov3333", user_id, {}, ["hello"]))
-    print(DB.add_to_permission("zov3333", user_id))
+    print(DB.push_to_dict("zov3333", user_id))
 
