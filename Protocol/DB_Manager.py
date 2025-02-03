@@ -100,19 +100,23 @@ class DatabaseManager:
         }
 
         selected_collection = path_collection[collection]
+        print(selected_collection)
 
-        path_operation = {
-            "add": items.add,
-            "remove": items.remove
-        }
+        _idk = selected_collection.find_one(query, {"_id": 0, f"{change_type}": 1})
+        print(_idk)
+        if _idk is None:
 
-        selected_operation = path_operation[operation]
-
-        for k, v in selected_collection.find_one(query, {"_id": 0, f"{change_type}": 1}):
+        for k, v in _idk:
             items = v
 
         if items:
             items = set(items)
+            path_operation = {
+                "add": items.add,
+                "remove": items.remove
+            }
+
+            selected_operation = path_operation[operation]
             selected_operation(change)
             items = list(items)
             x = selected_collection.update_one(query, {"$set": {f"{change_type}": items}})
@@ -141,6 +145,6 @@ class DatabaseManager:
 if __name__ == "__main__":
     DB = DatabaseManager("mongodb://localhost:27017/")
     Success, user_id = DB.new_user("dish11111", "Roblox")
-    print(DB.new_project("zov3333", user_id, {}, ["hello"]))
-    print(DB.push_to_dict("zov3333", user_id))
+    id = DB.new_project("zov3333", user_id, {}, ["hello"])
+    print(DB.push_to_dict(id, "projects", "add", user_id, "permission"))
 
