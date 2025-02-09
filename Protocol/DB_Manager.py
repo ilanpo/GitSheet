@@ -1,4 +1,4 @@
-
+import bson
 import pymongo
 from bson.binary import Binary
 NAME_TAKEN_MESSAGE = "Failed to add document, Name already taken"
@@ -16,7 +16,7 @@ class DatabaseManager:
         self.files_col = self.db["Files"]
 
         # TEMPORARY AUTOMATIC CLEAR
-        """x = self.users_col.delete_many({})
+        """x = self.projects_col.delete_many({})
         print(x.deleted_count, " documents deleted.")"""
 
         """print(self.db.list_collection_names())
@@ -38,16 +38,20 @@ class DatabaseManager:
 
     def new_user(self, user_name: str, password: str):
         query = {"name": user_name}
-        x = self.users_col.find_one(query)
-        if x:
+        item = None
+        for x in self.users_col.find(query, {"_id": 1}):
+            item = x
+        if item is not None:
             return False, NAME_TAKEN_MESSAGE
         ins_info = self.users_col.insert_one({"name": user_name, "password": password})
         return True, ins_info.inserted_id
 
     def new_project(self, name: str, owner_id: str, settings: dict, permission: list):
         query = {"name": name}
-        x = self.users_col.find_one(query)
-        if x:
+        item = None
+        for x in self.projects_col.find(query, {"_id": 1}):
+            item = x
+        if item is not None:
             return False, NAME_TAKEN_MESSAGE
         ins_info = self.projects_col.insert_one(
             {"name": name, "owner_id": owner_id, "settings": settings, "permission": permission, "veins": [], "nodes": []})
@@ -70,27 +74,30 @@ class DatabaseManager:
     def fetch_id(self, item_name: str, item_collection: str):
         query = {"name": item_name}
         item = None
+        try:
+            path_collection = {
+                "projects": self.projects_col,
+                "nodes": self.nodes_col,
+                "veins": self.veins_col,
+                "files": self.files_col,
+                "users": self.users_col
+            }
 
-        path_collection = {
-            "projects": self.projects_col,
-            "nodes": self.nodes_col,
-            "veins": self.veins_col,
-            "files": self.files_col
-        }
-
-        selected_collection = path_collection[item_collection]
-
-        for k, v in selected_collection.find_one(query, {"_id": 1}):
-            item = v
+            selected_collection = path_collection[item_collection]
+        except:
+            return False, "Failed to fetch id, No such collection"
+        for k in selected_collection.find(query, {"_id": 1}):
+            item = k
 
         if item:
             return True, item
         else:
-            return False, None
+            return False, "Failed to fetch id, No such item"
 
-    def push_to_dict(self, dict_id, collection: str, operation: str, change, change_type:str):
+    def push_to_dict(self, dict_id: bson.objectid.ObjectId, collection: str, operation: str, change, change_type:str):
         query = {"_id": dict_id}
         items = None
+        found_data = None
 
         path_collection = {
             "projects": self.projects_col,
@@ -100,51 +107,55 @@ class DatabaseManager:
         }
 
         selected_collection = path_collection[collection]
-        print(selected_collection)
+        result = selected_collection.find_one(query,{"_id": 0, f"{change_type}": 1})
+        if result:
+            found_data = result.get(change_type)
 
-        _idk = selected_collection.find_one(query, {"_id": 0, f"{change_type}": 1})
-        print(_idk)
-        if _idk is None:
-
-        for k, v in _idk:
-            items = v
-
-        if items:
-            items = set(items)
-            path_operation = {
-                "add": items.add,
-                "remove": items.remove
-            }
-
-            selected_operation = path_operation[operation]
-            selected_operation(change)
-            items = list(items)
+        if found_data is None:
+            items = change
             x = selected_collection.update_one(query, {"$set": {f"{change_type}": items}})
             return x.acknowledged
 
-        return False
+        if type(found_data) is not list:
+            items = [found_data, change]
+        else:
+            items = set(found_data)
+            path_operation = {
+                "add": items.add,
+                "remove": items.discard
+            }
+            selected_operation = path_operation[operation]
+            selected_operation(change)
+            items = list(items)
+        x = selected_collection.update_one(query, {"$set": {f"{change_type}": items}})
+        return x.acknowledged
 
     def new_node(self, project_id, permission: list, node_data: list, settings: dict):
         ins_info = self.nodes_col.insert_one({"permission": permission, "node_data": node_data, "settings": settings})
         node_id = ins_info.inserted_id
-        self.push_to_dict(project_id, "projects", "add", node_id, "node")
+        self.push_to_dict(project_id, "projects", "add", node_id, "nodes")
         return node_id
 
     def new_vein(self, project_id, permission: list, vein_data: str, settings: dict):
         ins_info = self.veins_col.insert_one({"permission": permission, "vein_data": vein_data, "settings": settings})
         vein_id = ins_info.inserted_id
-        self.push_to_dict(project_id, "projects", "add", vein_id, "vein")
+        self.push_to_dict(project_id, "projects", "add", vein_id, "veins")
         return vein_id
 
     def new_file(self, node_id, permission: list, file: bytes, settings: dict):
         ins_info = self.files_col.insert_one({"permission": permission, "file": file, "settings": settings})
         file_id = ins_info.inserted_id
-        self.push_to_dict(node_id, )
+        self.push_to_dict(node_id, "nodes", "add", file_id, "file")
 
 
 if __name__ == "__main__":
     DB = DatabaseManager("mongodb://localhost:27017/")
-    Success, user_id = DB.new_user("dish11111", "Roblox")
-    id = DB.new_project("zov3333", user_id, {}, ["hello"])
-    print(DB.push_to_dict(id, "projects", "add", user_id, "permission"))
+    #DB.new_project("GitSheet", "123", {"hi": "hello"}, ["123"])
+    bool, proj_id = DB.fetch_id("GitSheet", "projects")
+    print(proj_id["_id"])
+    node_id = DB.new_node(proj_id["_id"], ["stuff"], ["python", "other stuff"], {"hi": "bye"})
+
+
+
+
 
