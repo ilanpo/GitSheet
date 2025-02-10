@@ -1,19 +1,23 @@
 from Protocol.CommProtocol import *
+from Protocol.DB_Manager import *
 import threading
 
 
 class ClientHandle:
     comtocol: ComProtocol
+    DB: DatabaseManager
     Thread: threading.Thread
     ip: str
     port: int
 
     def __init__(self, ip, port, socket_obj):
         self.headers = {
-            "file": "FILE"
+            "file": "FILE",
+            "fetch": "FTCH"
         }
         self.comtocol = ComProtocol()
         self.comtocol.attach(ip, port, socket_obj)
+        self.DB = DatabaseManager("mongodb://localhost:27017/")
         self.connected = True
         self.last_error = "no error registered"
 
@@ -47,6 +51,10 @@ class ClientHandle:
             write_to_log(f"[ClientHandle] Exception on handle message {e}")
             self.last_error = f"Exception in [ClientHandle] handle message: {e}"
             return False
+
+    def fetch_item(self, item_type: str):
+
+
 
 class ServerBL:
     comtocol: ComProtocol

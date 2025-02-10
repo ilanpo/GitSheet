@@ -15,10 +15,6 @@ class DatabaseManager:
         self.nodes_col = self.db["Nodes"]
         self.files_col = self.db["Files"]
 
-        # TEMPORARY AUTOMATIC CLEAR
-        """x = self.projects_col.delete_many({})
-        print(x.deleted_count, " documents deleted.")"""
-
         """print(self.db.list_collection_names())
         with open(file_name, "rb") as file:
             encoded = Binary(file.read())
@@ -29,9 +25,6 @@ class DatabaseManager:
             with open(f"file_name{y}.MOV", "wb") as file:
                 file.write(x["file"])
                 y += 1"""
-
-        """for x in self.projects_col.find({}, {"file": 0}):
-            print(x)"""
 
     def create_collections(self):
         pass
@@ -57,20 +50,6 @@ class DatabaseManager:
             {"name": name, "owner_id": owner_id, "settings": settings, "permission": permission, "veins": [], "nodes": []})
         return True, ins_info.inserted_id
 
-    # OBSOLETE use push to dict with collection as "projects" and operation as "add" instead.
-    """def add_to_permission(self, project_id, userid):
-        query = {"_id": project_id}
-        perms = None
-        for in self.projects_col.find_one(query, {"_id": 0, "permission": 1}):
-            perms = x
-        if perms:
-            perms = set(perms)
-            perms.add(userid)
-            perms = list(perms)
-            x = self.projects_col.update_one(query, {"$set": {"permission": perms}})
-            return x.acknowledged
-        return False"""
-
     def fetch_id(self, item_name: str, item_collection: str):
         query = {"name": item_name}
         item = None
@@ -84,8 +63,8 @@ class DatabaseManager:
             }
 
             selected_collection = path_collection[item_collection]
-        except:
-            return False, "Failed to fetch id, No such collection"
+        except Exception as e:
+            return False, e
         for k in selected_collection.find(query, {"_id": 1}):
             item = k
 
@@ -107,7 +86,7 @@ class DatabaseManager:
         }
 
         selected_collection = path_collection[collection]
-        result = selected_collection.find_one(query,{"_id": 0, f"{change_type}": 1})
+        result = selected_collection.find_one(query, {})
         if result:
             found_data = result.get(change_type)
 
@@ -117,7 +96,10 @@ class DatabaseManager:
             return x.acknowledged
 
         if type(found_data) is not list:
-            items = [found_data, change]
+            if found_data != change:
+                items = [found_data, change]
+            else:
+                return True
         else:
             items = set(found_data)
             path_operation = {
@@ -133,27 +115,102 @@ class DatabaseManager:
     def new_node(self, project_id, permission: list, node_data: list, settings: dict):
         ins_info = self.nodes_col.insert_one({"permission": permission, "node_data": node_data, "settings": settings})
         node_id = ins_info.inserted_id
-        self.push_to_dict(project_id, "projects", "add", node_id, "nodes")
-        return node_id
+        success = self.push_to_dict(project_id, "projects", "add", node_id, "nodes")
+        return node_id, success
 
     def new_vein(self, project_id, permission: list, vein_data: str, settings: dict):
         ins_info = self.veins_col.insert_one({"permission": permission, "vein_data": vein_data, "settings": settings})
         vein_id = ins_info.inserted_id
-        self.push_to_dict(project_id, "projects", "add", vein_id, "veins")
-        return vein_id
+        success = self.push_to_dict(project_id, "projects", "add", vein_id, "veins")
+        return vein_id, success
 
     def new_file(self, node_id, permission: list, file: bytes, settings: dict):
         ins_info = self.files_col.insert_one({"permission": permission, "file": file, "settings": settings})
         file_id = ins_info.inserted_id
-        self.push_to_dict(node_id, "nodes", "add", file_id, "file")
+        success = self.push_to_dict(node_id, "nodes", "add", file_id, "files")
+        return file_id, success
+
+    def print_all_in_collection(self, collection: str):
+        path_collection = {
+            "projects": self.projects_col,
+            "nodes": self.nodes_col,
+            "veins": self.veins_col,
+            "files": self.files_col,
+            "users": self.users_col
+        }
+
+        selected_collection = path_collection[collection]
+        for x in selected_collection.find({}, {}):
+            print(x)
+
+    def clear_all_in_collection(self, collection: str):
+        path_collection = {
+            "projects": self.projects_col,
+            "nodes": self.nodes_col,
+            "veins": self.veins_col,
+            "files": self.files_col,
+            "users": self.users_col
+        }
+
+        selected_collection = path_collection[collection]
+
+    def fetch_projects(self, user_id) -> list:
+        projects = []
+
+        for x in self.projects_col.find({}, {}):
+            perms = x.get("permission")
+            if type(perms) is list:
+                if user_id in perms:
+                    projects.append(x)
+            else:
+                if user_id == perms:
+                    projects.append(x)
+
+        return projects
+
+    def fetch_veins_and_nodes(self, user_id, project_id):
+        query = {"_id": project_id}
+
+        veins_id = []
+        nodes_id = []
+        veins = []
+        nodes = []
+
+        for x in self.projects_col.find(query, {}):
+            perms = x.get("permission")
+            print(perms)
+            if type(perms) is list:
+                if user_id in perms:
+                    veins_id = x.get("veins")
+                    nodes_id = x.get("nodes")
+            else:
+                if user_id == perms:
+                    veins_id = x.get("veins")
+                    nodes_id = x.get("nodes")
+
+        for x in veins_id:
+            query = {"_id": x}
+            veins.append(self.veins_col.find_one(query))
+        for x in nodes_id:
+            query = {"_id": x}
+            nodes.append(self.nodes_col.find_one(query))
+
+        return veins, nodes
 
 
 if __name__ == "__main__":
     DB = DatabaseManager("mongodb://localhost:27017/")
-    #DB.new_project("GitSheet", "123", {"hi": "hello"}, ["123"])
+    #DB.new_project("GitSheet2", "123", {"hi": "hello"}, ["123"])
     bool, proj_id = DB.fetch_id("GitSheet", "projects")
-    print(proj_id["_id"])
-    node_id = DB.new_node(proj_id["_id"], ["stuff"], ["python", "other stuff"], {"hi": "bye"})
+    #print(proj_id["_id"])
+    #node_idd, Success = DB.new_vein(proj_id["_id"], ["stuff"], "Important info", {"hi": "bye"})
+    #print(Success)
+    #DB.push_to_dict(proj_id["_id"], "projects", "add", "4321", "permission")
+    DB.print_all_in_collection("projects")
+    print(DB.fetch_veins_and_nodes("123", proj_id["_id"]))
+
+
+
 
 
 
