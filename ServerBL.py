@@ -52,8 +52,28 @@ class ClientHandle:
             self.last_error = f"Exception in [ClientHandle] handle message: {e}"
             return False
 
-    def fetch_item(self, item_type: str):
+    def find_projects(self, user_id):
+        x = self.DB.fetch_projects(user_id)
+        return x
 
+    def find_veins_and_nodes(self, user_id, project_id):
+        x = self.DB.fetch_veins_and_nodes(user_id, project_id)
+        return x
+
+    def find_files(self, user_id, node_id):
+        x = self.DB.fetch_files(user_id, node_id)
+        return x
+
+    def delete_entry(self, entry_id, collection):
+        x = self.DB.remove_entry(entry_id, collection)
+        # allowed collections are as follows: "users" "projects" "nodes" "veins" "files"
+        return x
+
+    def update_entry(self, entry_id, collection, operation: str, change, change_field):
+        # allowed operations are: "add" "replace" "discard"
+        # allowed collections are as follows: "users" "projects" "nodes" "veins" "files"
+        x = self.DB.push_to_dict(entry_id, collection, operation, change, change_field)
+        return x
 
 
 class ServerBL:

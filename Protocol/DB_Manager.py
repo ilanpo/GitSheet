@@ -90,7 +90,7 @@ class DatabaseManager:
         if result:
             found_data = result.get(change_type)
 
-        if found_data is None:
+        if found_data is None or operation is "replace":
             items = change
             x = selected_collection.update_one(query, {"$set": {f"{change_type}": items}})
             return x.acknowledged
@@ -104,8 +104,10 @@ class DatabaseManager:
             items = set(found_data)
             path_operation = {
                 "add": items.add,
-                "remove": items.discard
+                "discard": items.discard
             }
+            if operation not in path_operation:
+                return False
             selected_operation = path_operation[operation]
             selected_operation(change)
             items = list(items)
@@ -129,6 +131,20 @@ class DatabaseManager:
         file_id = ins_info.inserted_id
         success = self.push_to_dict(node_id, "nodes", "add", file_id, "files")
         return file_id, success
+
+    def remove_entry(self, entry_id, collection):
+        path_collection = {
+            "projects": self.projects_col,
+            "nodes": self.nodes_col,
+            "veins": self.veins_col,
+            "files": self.files_col,
+            "users": self.users_col
+        }
+
+        selected_collection = path_collection[collection]
+        query = {"_id": entry_id}
+        result = selected_collection.delete_one(query)
+        return result
 
     def print_all_in_collection(self, collection: str):
         path_collection = {
@@ -188,31 +204,102 @@ class DatabaseManager:
                     veins_id = x.get("veins")
                     nodes_id = x.get("nodes")
 
-        for x in veins_id:
-            query = {"_id": x}
-            veins.append(self.veins_col.find_one(query))
-        for x in nodes_id:
-            query = {"_id": x}
-            nodes.append(self.nodes_col.find_one(query))
+        if type(veins_id) is list:
+            for x in veins_id:
+                query = {"_id": x}
+                z = self.veins_col.find_one(query)
+                perms = z.get("permission")
+                if type(perms) is list:
+                    if user_id in perms:
+                        veins.append(z)
+                else:
+                    if user_id == perms:
+                        veins.append(z)
+        else:
+            query = {"_id": veins_id}
+            z = self.veins_col.find_one(query)
+            perms = z.get("permission")
+            if type(perms) is list:
+                if user_id in perms:
+                    veins.append(z)
+            else:
+                if user_id == perms:
+                    veins.append(z)
+
+        if type(nodes_id) is list:
+            for x in nodes_id:
+                query = {"_id": x}
+                z = self.nodes_col.find_one(query)
+                perms = z.get("permission")
+                if type(perms) is list:
+                    if user_id in perms:
+                        nodes.append(z)
+                else:
+                    if user_id == perms:
+                        nodes.append(z)
+        else:
+            query = {"_id": nodes_id}
+            z = self.nodes_col.find_one(query)
+            perms = z.get("permission")
+            if type(perms) is list:
+                if user_id in perms:
+                    nodes.append(z)
+            else:
+                if user_id == perms:
+                    nodes.append(z)
 
         return veins, nodes
 
+    def fetch_files(self, user_id, node_id):
+        query = {"_id": node_id}
+        files_id = []
+        files = []
+
+        for x in self.nodes_col.find(query, {}):
+            perms = x.get("permission")
+            if type(perms) is list:
+                if user_id in perms:
+                    files_id = x.get("files")
+            else:
+                if user_id == perms:
+                    files_id = x.get("files")
+
+        if type(files_id) is list:
+            for x in files_id:
+                query = {"_id": x}
+                z = self.files_col.find_one(query)
+                perms = z.get("permission")
+                if type(perms) is list:
+                    if user_id in perms:
+                        files.append(z)
+                else:
+                    if user_id == perms:
+                        files.append(z)
+
+        else:
+            query = {"_id": files_id}
+            z = self.files_col.find_one(query)
+            perms = z.get("permission")
+            if type(perms) is list:
+                if user_id in perms:
+                    files.append(z)
+            else:
+                if user_id == perms:
+                    files.append(z)
+
+        return files
+
 
 if __name__ == "__main__":
-    DB = DatabaseManager("mongodb://localhost:27017/")
+    pass
+    #DB = DatabaseManager("mongodb://localhost:27017/")
     #DB.new_project("GitSheet2", "123", {"hi": "hello"}, ["123"])
-    bool, proj_id = DB.fetch_id("GitSheet", "projects")
+    #bool, proj_id = DB.fetch_id("GitSheet2", "projects")
     #print(proj_id["_id"])
-    #node_idd, Success = DB.new_vein(proj_id["_id"], ["stuff"], "Important info", {"hi": "bye"})
+    #node_idd, Success1 = DB.new_node(proj_id["_id"], ["123"], ["Important info"], {"hi": "bye"})
+    #file_idd, Success2 = DB.new_file(node_idd, ["123"], b"1001", {"default": "settings"})
     #print(Success)
     #DB.push_to_dict(proj_id["_id"], "projects", "add", "4321", "permission")
-    DB.print_all_in_collection("projects")
-    print(DB.fetch_veins_and_nodes("123", proj_id["_id"]))
-
-
-
-
-
-
-
-
+    #DB.print_all_in_collection("nodes")
+    #print(DB.fetch_files("123", node_idd))
+    #print(DB.remove_entry(proj_id["_id"], "projects"))
