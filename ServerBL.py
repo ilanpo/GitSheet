@@ -11,17 +11,14 @@ class ClientHandle:
     port: int
 
     def __init__(self, ip, port, socket_obj):
-        self.headers = {
-            "file": "FILE",
-            "fetch": "FTCH"
-        }
+        self.user_id = "123"  # PLACEHOLDER WHILE LOGIN DOESNT EXIST
         self.comtocol = ComProtocol()
         self.comtocol.attach(ip, port, socket_obj)
         self.DB = DatabaseManager("mongodb://localhost:27017/")
         self.connected = True
         self.last_error = "no error registered"
 
-    def Handle_Client(self):
+    def handle_client(self):
         try:
             while self.connected:
                 data = self.comtocol.receive()
@@ -30,15 +27,76 @@ class ClientHandle:
                     if data == DISCONNECT_MESSAGE:
                         write_to_log("Got disconnect message!")
                         self.connected = False
-                    self.Handle_Message(data)
+                    self.handle_message(data)
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on handle client {e}")
             self.last_error = f"Exception in [ClientHandle] handle client: {e}"
             return False
 
-    def Handle_Message(self, message):
-        if message.split(HEADER_SEPARATOR)[0] == self.headers["file"]:
-            self.file_reception(message)
+    def handle_message(self, message):
+        try:
+            if message.split(HEADER_SEPARATOR)[0] == HEADERS["file"]:
+                self.file_reception(message)
+            if message.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
+                path_collection = {
+                    "projects": self.find_projects,
+                    "nodes": self.find_nodes,
+                    "veins": self.find_veins,
+                    "files": self.find_files
+                }
+                message_start = message.split(PARAMETER_SEPARATOR)[0]
+                fetch_type = message_start.split(HEADER_SEPARATOR)[1]
+                chosen_path = path_collection[fetch_type]
+                if fetch_type == "projects":
+                    if not chosen_path(self.user_id):
+                        x = "None found!"
+                        self.comtocol.send(x)
+                    for x in chosen_path(self.user_id):
+                        success, x = self.serialize(x, fetch_type)
+                        if success:
+                            self.comtocol.send(x)
+                else:
+                    col_id = message.split(PARAMETER_SEPARATOR)[1]
+                    col_id = ObjectId(col_id)
+                    if not chosen_path(self.user_id, col_id):
+                        x = "None found!"
+                        self.comtocol.send(x)
+                    for x in chosen_path(self.user_id, col_id):
+                        success, x = self.serialize(x, fetch_type)
+                        if success:
+                            self.comtocol.send(x)
+
+        except Exception as e:
+            write_to_log(f"[ClientHandle] Exception on handle message {e}")
+            self.last_error = f"Exception in [ClientHandle] handle message: {e}"
+
+    def serialize(self, document_info: dict, fetch_type: str):
+        try:
+            document_info['_id'] = str(document_info['_id'])
+
+            if fetch_type == "projects":
+                temp_list = []
+                for x in document_info['nodes']:
+                    temp_list.append(str(x))
+                document_info['nodes'] = temp_list
+                temp_list = []
+                for x in document_info['veins']:
+                    temp_list.append(str(x))
+                document_info['veins'] = temp_list
+            elif fetch_type == "nodes":
+                temp_list = []
+                for x in document_info['files']:
+                    temp_list.append(str(x))
+                document_info['files'] = temp_list
+            elif fetch_type == "files":  # temp fix that has fetch for files not include the file itself
+                document_info['file'] = "PLACEHOLDER"
+            document_info = json.dumps(document_info)
+            print(f"document_info is: {document_info}")
+            return True, document_info
+        except Exception as e:
+            write_to_log(f"[ClientHandle] Exception on serialize {e}")
+            self.last_error = f"Exception in [ClientHandle] serialize: {e}"
+            return False, None
 
     def file_reception(self, message):
         file_name = message.split(HEADER_SEPARATOR)[1]
@@ -52,27 +110,39 @@ class ClientHandle:
             self.last_error = f"Exception in [ClientHandle] handle message: {e}"
             return False
 
-    def find_projects(self, user_id):
+    def find_projects(self, user_id) -> list:
         x = self.DB.fetch_projects(user_id)
+        print(x)
         return x
 
-    def find_veins_and_nodes(self, user_id, project_id):
+    def find_veins(self, user_id, project_id) -> list:
         x = self.DB.fetch_veins_and_nodes(user_id, project_id)
-        return x
+        print(x[0])
+        return x[0]
 
-    def find_files(self, user_id, node_id):
+    def find_nodes(self, user_id, project_id) -> list:
+        print(user_id)
+        print(project_id)
+        x = self.DB.fetch_veins_and_nodes(user_id, project_id)
+        print(f"nodes are: {x}")
+        return x[1]
+
+    def find_files(self, user_id, node_id) -> list:
         x = self.DB.fetch_files(user_id, node_id)
+        print(x)
         return x
 
     def delete_entry(self, entry_id, collection):
         x = self.DB.remove_entry(entry_id, collection)
         # allowed collections are as follows: "users" "projects" "nodes" "veins" "files"
+        print(x)
         return x
 
     def update_entry(self, entry_id, collection, operation: str, change, change_field):
         # allowed operations are: "add" "replace" "discard"
         # allowed collections are as follows: "users" "projects" "nodes" "veins" "files"
         x = self.DB.push_to_dict(entry_id, collection, operation, change, change_field)
+        print(x)
         return x
 
 
@@ -115,7 +185,7 @@ class ServerBL:
                 cl_socket, cl_addr = self.comtocol.accept_handler(5)
                 if cl_socket:
                     new_client = ClientHandle(cl_addr[0], cl_addr[1], cl_socket)
-                    thread = threading.Thread(target=new_client.Handle_Client)
+                    thread = threading.Thread(target=new_client.handle_client)
                     write_to_log(f"[ServerBL] Active connections: {threading.active_count()}")
                     thread.start()
                 if input() == 'STOP':

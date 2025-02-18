@@ -1,4 +1,5 @@
 import bson
+from bson import ObjectId
 import pymongo
 from bson.binary import Binary
 NAME_TAKEN_MESSAGE = "Failed to add document, Name already taken"
@@ -47,7 +48,8 @@ class DatabaseManager:
         if item is not None:
             return False, NAME_TAKEN_MESSAGE
         ins_info = self.projects_col.insert_one(
-            {"name": name, "owner_id": owner_id, "settings": settings, "permission": permission, "veins": [], "nodes": []})
+            {"name": name, "owner_id": owner_id, "settings": settings,
+             "permission": permission, "veins": [], "nodes": []})
         return True, ins_info.inserted_id
 
     def fetch_id(self, item_name: str, item_collection: str):
@@ -69,11 +71,11 @@ class DatabaseManager:
             item = k
 
         if item:
-            return True, item
+            return True, item["_id"]
         else:
             return False, "Failed to fetch id, No such item"
 
-    def push_to_dict(self, dict_id: bson.objectid.ObjectId, collection: str, operation: str, change, change_type:str):
+    def push_to_dict(self, dict_id: bson.objectid.ObjectId, collection: str, operation: str, change, change_type: str):
         query = {"_id": dict_id}
         items = None
         found_data = None
@@ -90,7 +92,7 @@ class DatabaseManager:
         if result:
             found_data = result.get(change_type)
 
-        if found_data is None or operation is "replace":
+        if found_data is None or operation == "replace":
             items = change
             x = selected_collection.update_one(query, {"$set": {f"{change_type}": items}})
             return x.acknowledged
@@ -115,7 +117,8 @@ class DatabaseManager:
         return x.acknowledged
 
     def new_node(self, project_id, permission: list, node_data: list, settings: dict):
-        ins_info = self.nodes_col.insert_one({"permission": permission, "node_data": node_data, "settings": settings})
+        ins_info = self.nodes_col.insert_one({"permission": permission, "node_data": node_data, "settings": settings,
+                                              "files": []})
         node_id = ins_info.inserted_id
         success = self.push_to_dict(project_id, "projects", "add", node_id, "nodes")
         return node_id, success
@@ -169,6 +172,7 @@ class DatabaseManager:
         }
 
         selected_collection = path_collection[collection]
+        selected_collection.delete_many({}, {})
 
     def fetch_projects(self, user_id) -> list:
         projects = []
@@ -194,7 +198,6 @@ class DatabaseManager:
 
         for x in self.projects_col.find(query, {}):
             perms = x.get("permission")
-            print(perms)
             if type(perms) is list:
                 if user_id in perms:
                     veins_id = x.get("veins")
@@ -292,14 +295,18 @@ class DatabaseManager:
 
 if __name__ == "__main__":
     pass
+
     #DB = DatabaseManager("mongodb://localhost:27017/")
-    #DB.new_project("GitSheet2", "123", {"hi": "hello"}, ["123"])
-    #bool, proj_id = DB.fetch_id("GitSheet2", "projects")
-    #print(proj_id["_id"])
-    #node_idd, Success1 = DB.new_node(proj_id["_id"], ["123"], ["Important info"], {"hi": "bye"})
+    #DB.clear_all_in_collection("files")
+    #bool, proj_id = DB.fetch_id("GitSheet", "projects")
+    #print(DB.fetch_veins_and_nodes("123", proj_id))
+    #DB.new_project("GitSheet", "123", {"hi": "hello"}, ["123"])
+    #bool, proj_id = DB.fetch_id("GitSheet", "projects")
+    #node_idd, Success1 = DB.new_node(proj_id, ["123"], ["Important info"], {"hi": "bye"})
+    #print(DB.fetch_veins_and_nodes("123", ObjectId("67a8ee274a8273e4c778beb2")))
     #file_idd, Success2 = DB.new_file(node_idd, ["123"], b"1001", {"default": "settings"})
     #print(Success)
-    #DB.push_to_dict(proj_id["_id"], "projects", "add", "4321", "permission")
+    #DB.push_to_dict(proj_id, "projects", "add", "4321", "permission")
     #DB.print_all_in_collection("nodes")
     #print(DB.fetch_files("123", node_idd))
-    #print(DB.remove_entry(proj_id["_id"], "projects"))
+    #print(DB.remove_entry(proj_id, "projects"))

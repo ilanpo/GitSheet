@@ -1,5 +1,7 @@
 import logging
 import socket
+import json
+import cryptography
 from select import select
 
 HEADER_SIZE = 4
@@ -11,12 +13,42 @@ SERVER_CONNECTION_TYPE = 'ServerConnectionType'
 DISCONNECT_MESSAGE = 'D1SC0NNECT'
 HEADER_SEPARATOR = '<'
 PARAMETER_SEPARATOR = '>'
+HEADERS = {
+    "file": "FILE",
+    "fetch": "FTCH"
+}
 logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def write_to_log(msg):
     logging.info(msg)
     print(msg)
+
+
+class EncryptProtocol:
+    def __init__(self):
+        self.last_error = None
+        self.public_key = None
+        self.private_key = None
+        self.Symmetric_key = None
+
+    def encrypt_asymmetric(self, content) -> str:
+        pass
+
+    def decrypt_asymmetric(self, content) -> str:
+        pass
+
+    def encrypt_symmetric(self, content) -> str:
+        pass
+
+    def decrypt_symmetric(self, content) -> str:
+        pass
+
+    def generate_asymmetric_key(self) -> str:
+        pass
+
+    def generate_symmetric_key(self) -> str:
+        pass
 
 
 class ComProtocol:
