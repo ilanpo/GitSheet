@@ -1,8 +1,9 @@
 import logging
 import socket
-import json
-import cryptography
-from select import select
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+import secrets
 
 HEADER_SIZE = 4
 CHUNK_SIZE = 1024
@@ -30,25 +31,97 @@ class EncryptProtocol:
         self.last_error = None
         self.public_key = None
         self.private_key = None
-        self.Symmetric_key = None
+        self.symmetric_key = None
+        self.init_vector = None
 
-    def encrypt_asymmetric(self, content) -> str:
-        pass
+    def encrypt_asymmetric(self, content) -> tuple:
+        try:
+            result = self.public_key.encrypt(
+                content,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            return True, result
 
-    def decrypt_asymmetric(self, content) -> str:
-        pass
+        except Exception as e:
+            write_to_log(f"[EncryptProtocol] Exception on Asymmetric encrypt {e}")
+            self.last_error = f"Exception in EncryptProtocol Asymmetric encrypt: {e}"
+            return False, ""
 
-    def encrypt_symmetric(self, content) -> str:
-        pass
+    def decrypt_asymmetric(self, cryptid) -> tuple:
+        try:
+            content = self.private_key.decrypt(
+                cryptid,
+                padding.OAEP(
+                    mgf=padding.MGF1(algorithm=hashes.SHA256()),
+                    algorithm=hashes.SHA256(),
+                    label=None
+                )
+            )
+            return True, content
 
-    def decrypt_symmetric(self, content) -> str:
-        pass
+        except Exception as e:
+            write_to_log(f"[EncryptProtocol] Exception on Asymmetric decrypt {e}")
+            self.last_error = f"Exception in EncryptProtocol Asymmetric decrypt: {e}"
+            return False, ""
 
-    def generate_asymmetric_key(self) -> str:
-        pass
+    def encrypt_symmetric(self, content) -> bytes:
+        algorithm = algorithms.AES(self.symmetric_key)
+        mode = modes.CTR(self.init_vector)
+        cipher = Cipher(algorithm, mode)
+        encryptor = cipher.encryptor()
 
-    def generate_symmetric_key(self) -> str:
-        pass
+        message_encrypted = encryptor.update(content) + encryptor.finalize()
+
+        return message_encrypted
+
+    def decrypt_symmetric(self, cryptid) -> bytes:
+        algorithm = algorithms.AES(self.symmetric_key)
+        mode = modes.CTR(self.init_vector)
+
+        cipher = Cipher(algorithm, mode)
+
+        decryptor = cipher.decryptor()
+        message_decrypted = decryptor.update(cryptid) + decryptor.finalize()
+
+        return message_decrypted
+
+    def generate_asymmetric_key(self) -> bool:
+        key_size = 2048
+        try:
+            self.private_key = rsa.generate_private_key(
+                public_exponent=65537,
+                key_size=key_size,
+            )
+
+            self.public_key = self.private_key.public_key()
+            return True
+
+        except Exception as e:
+            write_to_log(f"[EncryptProtocol] Exception on Asymmetric keygen {e}")
+            self.last_error = f"Exception in EncryptProtocol Asymmetric keygen: {e}"
+            return False
+
+    def gen_padding(self):
+        return padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None
+        )
+
+    def generate_symmetric_key(self) -> bool:
+        try:
+            self.symmetric_key = secrets.token_bytes(32)
+            self.init_vector = secrets.token_bytes(16)
+            return True
+
+        except Exception as e:
+            write_to_log(f"[EncryptProtocol] Exception on Symmetric keygen {e}")
+            self.last_error = f"Exception in EncryptProtocol Symmetric keygen: {e}"
+            return False
 
 
 class ComProtocol:
@@ -169,4 +242,8 @@ class ComProtocol:
 
 
 if __name__ == "__main__":
-    pass
+    Crypt = EncryptProtocol()
+    Crypt.generate_symmetric_key()
+    print(Crypt.encrypt_symmetric("123".encode()))
+    msg = Crypt.encrypt_symmetric("123".encode())
+    print(Crypt.decrypt_symmetric(msg))

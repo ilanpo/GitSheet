@@ -1,0 +1,4 @@
+2025-02-24 09:17:31,315 - INFO - [EncryptProtocol] Exception on Asymmetric encrypt argument 'plaintext': 'str' object cannot be converted to 'PyBytes'
+2025-02-24 09:17:31,316 - INFO - [EncryptProtocol] Exception on Asymmetric encrypt argument 'plaintext': 'str' object cannot be converted to 'PyBytes'
+2025-02-24 09:17:31,316 - INFO - [EncryptProtocol] Exception on Asymmetric decrypt argument 'ciphertext': 'tuple' object cannot be converted to 'PyBytes'
+2025-02-24 09:18:39,968 - INFO - [EncryptProtocol] Exception on Asymmetric decrypt argument 'ciphertext': 'tuple' object cannot be converted to 'PyBytes'
