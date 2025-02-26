@@ -1,5 +1,6 @@
 import os.path
 import threading
+import json
 
 from Protocol.CommProtocol import *
 
@@ -11,7 +12,8 @@ class ClientBl:
 
     def __init__(self):
         self.flags = {
-            "running": False  # flag for if the client is running
+            "running": False,   # flag for if the client is running
+            "encrypted": False  # flag for if the communication is encrypted
         }
         self.last_error = "no error registered"
 
@@ -41,6 +43,9 @@ class ClientBl:
             x = self.comtocol.receive()
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 x = json.loads(x)
+            if x.split(HEADER_SEPARATOR)[0] == HEADERS["keygen"]:
+                self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1])
+                self.flags["encrypted"] = True
             print(x)
 
     def console_handle(self):
