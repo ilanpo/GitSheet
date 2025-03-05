@@ -29,6 +29,10 @@ class ClientBl:
                 write_to_log(f"[ClientBL] Exception on start client in comtocol connect {self.last_error}")
                 return False
             self.flags["running"] = True
+            self.comtocol.receive_public_key()
+            sym_key, init_vec = self.comtocol.gen_symmetric_key()
+            self.comtocol.send_asym(sym_key)
+            self.comtocol.send_asym(init_vec)
             thread = threading.Thread(target=self.receive_handle)
             thread.start()
             return True

@@ -21,6 +21,12 @@ class ClientHandle:
 
     def handle_client(self):
         try:
+            self.comtocol.send_public_key()
+            success, sym_key = self.comtocol.receive_asym()
+            success, init_vec = self.comtocol.receive_asym()
+            print(sym_key)
+            print(type(sym_key))
+            self.comtocol.set_symmetric_key(sym_key, init_vec)
             while self.connected:
                 data = self.comtocol.receive()
                 if data:
