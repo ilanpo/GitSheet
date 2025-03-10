@@ -25,16 +25,22 @@ class ClientHandle:
             success, sym_key = self.comtocol.receive_asym()
             success, init_vec = self.comtocol.receive_asym()
             print(sym_key)
-            print(type(sym_key))
+            print(init_vec)
             self.comtocol.set_symmetric_key(sym_key, init_vec)
+            print(self.comtocol.give_me_keys())
             while self.connected:
                 data = self.comtocol.receive()
                 if data:
                     write_to_log(f"[ClientHandle] received {data} from {self.comtocol.whos_there()}")
-                    if data == DISCONNECT_MESSAGE:
-                        write_to_log("Got disconnect message!")
-                        self.connected = False
-                    self.handle_message(data)
+                    success, data = self.comtocol.decrypt_data(data)
+                    if success:
+                        write_to_log(data)
+                        if data == DISCONNECT_MESSAGE:
+                            write_to_log("Got disconnect message!")
+                            self.connected = False
+                        self.handle_message(data)
+                    else:
+                        write_to_log("failed to decrypt data")
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on handle client {e}")
             self.last_error = f"Exception in [ClientHandle] handle client: {e}"

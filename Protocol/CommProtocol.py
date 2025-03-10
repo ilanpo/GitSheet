@@ -227,14 +227,25 @@ class ComProtocol:
         try:
             self.cryptocol.generate_symmetric_key()
             success, value = self.cryptocol.encrypt_asymmetric(value)
-            write_to_log(success)
-            write_to_log(value)
             value_len = str(len(value)).zfill(HEADER_SIZE)
             msg_len = str(len(value_len)).zfill(HEADER_SIZE)
             msg = f"{msg_len}0{value_len}"
             self.socket.send(msg.encode())
             self.socket.send(value)
-            write_to_log(msg)
+            return True
+        except Exception as e:
+            write_to_log(f"[ComProtocol] Exception on send public key: {e}")
+            self.last_error = f"Exception in ComProtocol send public key: {e}"
+            return False
+
+    def send_sym(self, value):
+        try:
+            success, value = self.cryptocol.encrypt_symmetric(value)
+            value_len = str(len(value)).zfill(HEADER_SIZE)
+            msg_len = str(len(value_len)).zfill(HEADER_SIZE)
+            msg = f"{msg_len}0{value_len}"
+            self.socket.send(msg.encode())
+            self.socket.send(value)
             return True
         except Exception as e:
             write_to_log(f"[ComProtocol] Exception on send public key: {e}")
@@ -271,7 +282,7 @@ class ComProtocol:
     def format_value(self, value: str, is_raw: bool):
         success, value = self.cryptocol.encrypt_symmetric(value.encode())
         if success:
-            value = str(value)
+            #value = value.decode()
             value_len = str(len(value)).zfill(HEADER_SIZE)
             return f"{ value_len }{ is_raw and 1 or 0 }{ value }"
         else:
@@ -294,7 +305,7 @@ class ComProtocol:
 
     def decrypt_data(self, data):
         _, value = self.cryptocol.decrypt_symmetric(data)
-        return value
+        return _, value
 
     def decrypt_data_asym(self, data):
         return self.cryptocol.decrypt_asymmetric(data)
@@ -322,12 +333,23 @@ class ComProtocol:
             is_raw = self.socket.recv(1).decode()
 
             bytes_len = self.socket.recv(length).decode()
-            write_to_log(bytes_len)
             data = self.socket.recv(int(bytes_len))
-            write_to_log("this is the data:")
-            write_to_log(data)
             data = self.cryptocol.decrypt_asymmetric(data)
-            write_to_log(data)
+            return data
+
+        except Exception as e:
+            """write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
+            self.last_error = f"Exception in ComProtocol receive asymmetric: {e}")"""
+            return None
+
+    def receive_sym(self):
+        try:
+            length = int(self.socket.recv(HEADER_SIZE).decode())
+            is_raw = self.socket.recv(1).decode()
+
+            bytes_len = self.socket.recv(length).decode()
+            data = self.socket.recv(int(bytes_len))
+            data = self.cryptocol.decrypt_symmetric(data)
             return data
 
         except Exception as e:
@@ -344,8 +366,7 @@ class ComProtocol:
                 return self.raw_receive(int(length_raw))
 
             data = self.socket.recv(length)
-            data = self.decrypt_data(data)
-            print( data )
+            print(data)
             return data
 
         except Exception as e:
@@ -359,6 +380,17 @@ class ComProtocol:
     def whos_there(self):
         return self.ip, self.port
 
+    def give_me_keys(self):
+        return self.cryptocol.get_symmetric_key()
+
 
 if __name__ == "__main__":
-    pass
+    Comtocol = ComProtocol()
+    Comtocol.gen_symmetric_key()
+    z = Comtocol.format_value("hello", False)
+    write_to_log(z)
+    z = z[5:]
+    write_to_log(z)
+    z = bytes(z)
+    write_to_log(z)
+    write_to_log(Comtocol.decrypt_data(z))

@@ -48,7 +48,8 @@ class ClientBl:
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 x = json.loads(x)
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["keygen"]:
-                self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1])
+                self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0],
+                                                x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1])
                 self.flags["encrypted"] = True
             print(x)
 
@@ -58,7 +59,6 @@ class ClientBl:
             msg = input()
 
             if msg.split(HEADER_SEPARATOR)[0] == HEADERS["file"]:
-                file_name = msg.split(HEADER_SEPARATOR)[1]
                 self.comtocol.send(msg)
                 self.file_send(msg.split(HEADER_SEPARATOR)[1])
             else:
