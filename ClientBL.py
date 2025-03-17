@@ -44,7 +44,8 @@ class ClientBl:
 
     def receive_handle(self):
         while self.flags["running"]:
-            x = self.comtocol.receive()
+            success, x = self.comtocol.receive_sym()
+            x = x.decode()
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 x = json.loads(x)
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["keygen"]:
@@ -59,15 +60,16 @@ class ClientBl:
             msg = input()
 
             if msg.split(HEADER_SEPARATOR)[0] == HEADERS["file"]:
-                self.comtocol.send(msg)
+                self.comtocol.send_sym(msg.encode())
                 self.file_send(msg.split(HEADER_SEPARATOR)[1])
             else:
-                self.comtocol.send(msg)
+                self.comtocol.send_sym(msg.encode())
+                write_to_log(self.comtocol.give_me_keys())
         self.flags["running"] = False
 
     def file_send(self, file_name):
         with open(file_name, "rb") as file:
-            self.comtocol.send_raw(file.read())
+            self.comtocol.send_sym(file.read())
 
 
 if __name__ == "__main__":

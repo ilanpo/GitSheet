@@ -223,9 +223,8 @@ class ComProtocol:
             self.last_error = f"Exception in ComProtocol send public key: {e}"
             return False
 
-    def send_asym(self, value):
+    def send_asym(self, value: bytes):
         try:
-            self.cryptocol.generate_symmetric_key()
             success, value = self.cryptocol.encrypt_asymmetric(value)
             value_len = str(len(value)).zfill(HEADER_SIZE)
             msg_len = str(len(value_len)).zfill(HEADER_SIZE)
@@ -234,11 +233,11 @@ class ComProtocol:
             self.socket.send(value)
             return True
         except Exception as e:
-            write_to_log(f"[ComProtocol] Exception on send public key: {e}")
-            self.last_error = f"Exception in ComProtocol send public key: {e}"
+            write_to_log(f"[ComProtocol] Exception on send asymmetric: {e}")
+            self.last_error = f"Exception in ComProtocol send asymmetric: {e}"
             return False
 
-    def send_sym(self, value):
+    def send_sym(self, value: bytes):
         try:
             success, value = self.cryptocol.encrypt_symmetric(value)
             value_len = str(len(value)).zfill(HEADER_SIZE)
@@ -248,8 +247,8 @@ class ComProtocol:
             self.socket.send(value)
             return True
         except Exception as e:
-            write_to_log(f"[ComProtocol] Exception on send public key: {e}")
-            self.last_error = f"Exception in ComProtocol send public key: {e}"
+            write_to_log(f"[ComProtocol] Exception on send symmetric: {e}")
+            self.last_error = f"Exception in ComProtocol send symmetric: {e}"
             return False
 
     def return_error(self):
@@ -385,12 +384,4 @@ class ComProtocol:
 
 
 if __name__ == "__main__":
-    Comtocol = ComProtocol()
-    Comtocol.gen_symmetric_key()
-    z = Comtocol.format_value("hello", False)
-    write_to_log(z)
-    z = z[5:]
-    write_to_log(z)
-    z = bytes(z)
-    write_to_log(z)
-    write_to_log(Comtocol.decrypt_data(z))
+    pass

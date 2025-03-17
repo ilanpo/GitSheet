@@ -29,11 +29,11 @@ class ClientHandle:
             self.comtocol.set_symmetric_key(sym_key, init_vec)
             print(self.comtocol.give_me_keys())
             while self.connected:
-                data = self.comtocol.receive()
-                if data:
+                success, data = self.comtocol.receive_sym()
+                if data and success:
                     write_to_log(f"[ClientHandle] received {data} from {self.comtocol.whos_there()}")
-                    success, data = self.comtocol.decrypt_data(data)
                     if success:
+                        data = data.decode()
                         write_to_log(data)
                         if data == DISCONNECT_MESSAGE:
                             write_to_log("Got disconnect message!")
@@ -63,21 +63,21 @@ class ClientHandle:
                 if fetch_type == "projects":
                     if not chosen_path(self.user_id):
                         x = "None found!"
-                        self.comtocol.send(x)
+                        self.comtocol.send_sym(x.encode())
                     for x in chosen_path(self.user_id):
                         success, x = self.serialize(x, fetch_type)
                         if success:
-                            self.comtocol.send(x)
+                            self.comtocol.send_sym(x.encode())
                 else:
                     col_id = message.split(PARAMETER_SEPARATOR)[1]
                     col_id = ObjectId(col_id)
                     if not chosen_path(self.user_id, col_id):
                         x = "None found!"
-                        self.comtocol.send(x)
+                        self.comtocol.send_sym(x.encode())
                     for x in chosen_path(self.user_id, col_id):
                         success, x = self.serialize(x, fetch_type)
                         if success:
-                            self.comtocol.send(x)
+                            self.comtocol.send_sym(x.encode())
 
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on handle message {e}")
@@ -114,8 +114,8 @@ class ClientHandle:
     def file_reception(self, message):
         file_name = message.split(HEADER_SEPARATOR)[1]
         try:
-            with open("file_name.png", "wb") as file:
-                raw = self.comtocol.receive()
+            with open("file_name.txt", "wb") as file:
+                success, raw = self.comtocol.receive_sym()
                 file.write(raw)
             return True
         except Exception as e:
