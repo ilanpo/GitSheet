@@ -29,6 +29,10 @@ class ClientBl:
                 write_to_log(f"[ClientBL] Exception on start client in comtocol connect {self.last_error}")
                 return False
             self.flags["running"] = True
+            self.comtocol.receive_public_key()
+            sym_key, init_vec = self.comtocol.gen_symmetric_key()
+            self.comtocol.send_asym(sym_key)
+            self.comtocol.send_asym(init_vec)
             thread = threading.Thread(target=self.receive_handle)
             thread.start()
             return True
@@ -40,11 +44,13 @@ class ClientBl:
 
     def receive_handle(self):
         while self.flags["running"]:
-            x = self.comtocol.receive()
+            success, x = self.comtocol.receive_sym()
+            x = x.decode()
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 x = json.loads(x)
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["keygen"]:
-                self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1])
+                self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0],
+                                                x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1])
                 self.flags["encrypted"] = True
             print(x)
 
@@ -54,16 +60,15 @@ class ClientBl:
             msg = input()
 
             if msg.split(HEADER_SEPARATOR)[0] == HEADERS["file"]:
-                file_name = msg.split(HEADER_SEPARATOR)[1]
-                self.comtocol.send(msg)
+                self.comtocol.send_sym(msg.encode())
                 self.file_send(msg.split(HEADER_SEPARATOR)[1])
             else:
-                self.comtocol.send(msg)
+                self.comtocol.send_sym(msg.encode())
         self.flags["running"] = False
 
     def file_send(self, file_name):
         with open(file_name, "rb") as file:
-            self.comtocol.send_raw(file.read())
+            self.comtocol.send_sym(file.read())
 
 
 if __name__ == "__main__":
