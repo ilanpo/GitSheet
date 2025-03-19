@@ -153,7 +153,6 @@ class EncryptProtocol:
                                             format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
 
-
 class ComProtocol:
     ip: str
     port: int
@@ -251,6 +250,26 @@ class ComProtocol:
             self.last_error = f"Exception in ComProtocol send symmetric: {e}"
             return False
 
+    def send_raw_sym(self, value: bytes):
+        try:
+            success, value = self.cryptocol.encrypt_symmetric(value)
+            value_len = str(len(value)).zfill(HEADER_SIZE)
+            msg_len = str(len(value_len)).zfill(HEADER_SIZE)
+            msg = f"{msg_len}0{value_len}"
+            self.socket.send(msg.encode())
+            len_sent = 0
+            while len_sent < len(value):
+                remaining = value[len_sent:]
+                length_to_send = min(len(remaining), CHUNK_SIZE)
+                self.socket.send(remaining[:length_to_send])
+                len_sent += length_to_send
+
+            return True
+        except Exception as e:
+            write_to_log(f"[ComProtocol] Exception on send raw symmetric: {e}")
+            self.last_error = f"Exception in ComProtocol send raw symmetric: {e}"
+            return False
+
     def return_error(self):
         return self.last_error
 
@@ -333,13 +352,13 @@ class ComProtocol:
 
             bytes_len = self.socket.recv(length).decode()
             data = self.socket.recv(int(bytes_len))
-            data = self.cryptocol.decrypt_asymmetric(data)
-            return data
+            success, data = self.cryptocol.decrypt_asymmetric(data)
+            return success, data
 
         except Exception as e:
             """write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
             self.last_error = f"Exception in ComProtocol receive asymmetric: {e}")"""
-            return None
+            return False, None
 
     def receive_sym(self):
         try:
@@ -348,13 +367,32 @@ class ComProtocol:
 
             bytes_len = self.socket.recv(length).decode()
             data = self.socket.recv(int(bytes_len))
-            data = self.cryptocol.decrypt_symmetric(data)
-            return data
+            success, data = self.cryptocol.decrypt_symmetric(data)
+            return success, data
 
         except Exception as e:
             """write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
             self.last_error = f"Exception in ComProtocol receive asymmetric: {e}")"""
-            return None
+            return False, None
+
+    def receive_raw_sym(self):
+        try:
+            length = int(self.socket.recv(HEADER_SIZE).decode())
+            is_raw = self.socket.recv(1).decode()
+            file_length = int(self.socket.recv(length).decode())
+            raw_data: bytes = b""
+            while len(raw_data) < file_length:
+                chunk_size = min(CHUNK_SIZE, file_length-len(raw_data))
+                chunk = self.socket.recv(chunk_size)
+                raw_data += chunk
+
+            success, raw_data = self.decrypt_data(raw_data)
+            return True, raw_data
+
+        except Exception as e:
+            """write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
+            self.last_error = f"Exception in ComProtocol receive asymmetric: {e}")"""
+            return False, None
 
     def receive(self):
         try:

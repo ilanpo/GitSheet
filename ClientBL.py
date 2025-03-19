@@ -60,15 +60,14 @@ class ClientBl:
             msg = input()
 
             if msg.split(HEADER_SEPARATOR)[0] == HEADERS["file"]:
-                self.comtocol.send_sym(msg.encode())
+                self.comtocol.send_raw_sym(msg.encode())
                 self.file_send(msg.split(HEADER_SEPARATOR)[1])
             else:
                 self.comtocol.send_sym(msg.encode())
-                write_to_log(self.comtocol.give_me_keys())
         self.flags["running"] = False
 
     def file_send(self, file_name):
-        with open(file_name, "rb") as file:
+        with open("example.pdf", "rb") as file:
             self.comtocol.send_sym(file.read())
 
 
