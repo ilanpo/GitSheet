@@ -16,6 +16,7 @@ class ClientBl:
             "encrypted": False  # flag for if the communication is encrypted
         }
         self.last_error = "no error registered"
+        self.last_fetch_received = None
 
     def init_protocols(self):
         self.comtocol = ComProtocol()
@@ -47,8 +48,10 @@ class ClientBl:
             success, x = self.comtocol.receive_sym()
             x = x.decode()
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
+                x = x.split(HEADER_SEPARATOR)[1]
                 x = json.loads(x)
-            if x.split(HEADER_SEPARATOR)[0] == HEADERS["keygen"]:
+                self.last_fetch_received = x
+            elif x.split(HEADER_SEPARATOR)[0] == HEADERS["keygen"]:
                 self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0],
                                                 x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1])
                 self.flags["encrypted"] = True
@@ -66,15 +69,30 @@ class ClientBl:
                 self.comtocol.send_sym(msg.encode())
         self.flags["running"] = False
 
+    def request_projects(self):
+        try:
+            self.comtocol.send_sym("FTCH<projects".encode())
+            while self.last_fetch_received is None:
+                pass
+            fetch = self.last_fetch_received
+            self.last_fetch_received = None
+            return fetch
+
+        except Exception as e:
+            write_to_log(f"[ClientBL] Exception on request projects {e}")
+            self.last_error = f"Exception in [ClientBL] request projects: {e}"
+            return None
+
     def file_send(self, file_name):
         with open("example.pdf", "rb") as file:
-            self.comtocol.send_sym(file.read())
+            self.comtocol.send_raw_sym(file.read())
 
 
 if __name__ == "__main__":
     Client = ClientBl()
     Client.init_protocols()
     Client.start_client("127.0.0.1", 36969)
+    print(Client.request_projects()["_id"])
     Client.console_handle()  # command should look like this: FTCH<nodes>67a8ee274a8273e4c778beb2
                                                     # (  type of command < parameter 1 > parameter 2 )
 

@@ -51,27 +51,31 @@ class ClientHandle:
                     "veins": self.find_veins,
                     "files": self.find_files
                 }
+                x = FAILURE_MESSAGE
+                success = False
                 message_start = message.split(PARAMETER_SEPARATOR)[0]
                 fetch_type = message_start.split(HEADER_SEPARATOR)[1]
                 chosen_path = path_collection[fetch_type]
                 if fetch_type == "projects":
                     if not chosen_path(self.user_id):
-                        x = "None found!"
-                        self.comtocol.send_sym(x.encode())
+                        x = FAILURE_MESSAGE
                     for x in chosen_path(self.user_id):
                         success, x = self.serialize(x, fetch_type)
-                        if success:
-                            self.comtocol.send_sym(x.encode())
+
                 else:
                     col_id = message.split(PARAMETER_SEPARATOR)[1]
                     col_id = ObjectId(col_id)
                     if not chosen_path(self.user_id, col_id):
-                        x = "None found!"
-                        self.comtocol.send_sym(x.encode())
+                        x = FAILURE_MESSAGE
                     for x in chosen_path(self.user_id, col_id):
                         success, x = self.serialize(x, fetch_type)
-                        if success:
-                            self.comtocol.send_sym(x.encode())
+
+                if success:
+                    x = HEADERS["fetch"] + "<" + x
+                    self.comtocol.send_sym(x.encode())
+                else:
+                    self.comtocol.send_sym(x.encode())
+
 
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on handle message {e}")
