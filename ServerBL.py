@@ -108,13 +108,13 @@ class ClientHandle:
     def file_reception(self, message):
         file_name = message.split(HEADER_SEPARATOR)[1]
         try:
-            with open("file_name.txt", "wb") as file:
-                success, raw = self.comtocol.receive_sym()
+            with open(f"{file_name}", "wb") as file:
+                success, raw = self.comtocol.receive_raw_sym()
                 file.write(raw)
             return True
         except Exception as e:
-            write_to_log(f"[ClientHandle] Exception on handle message {e}")
-            self.last_error = f"Exception in [ClientHandle] handle message: {e}"
+            write_to_log(f"[ClientHandle] Exception on file reception {e}")
+            self.last_error = f"Exception in [ClientHandle] file reception: {e}"
             return False
 
     def find_projects(self, user_id) -> list:
