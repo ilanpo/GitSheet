@@ -52,30 +52,41 @@ class ClientHandle:
                     "files": self.find_files
                 }
                 x = FAILURE_MESSAGE
-                success = False
+                i = 0
                 message_start = message.split(PARAMETER_SEPARATOR)[0]
                 fetch_type = message_start.split(HEADER_SEPARATOR)[1]
                 chosen_path = path_collection[fetch_type]
                 if fetch_type == "projects":
-                    if not chosen_path(self.user_id):
+                    found_info = chosen_path(self.user_id)
+                    if not found_info:
                         x = FAILURE_MESSAGE
-                    for x in chosen_path(self.user_id):
-                        success, x = self.serialize(x, fetch_type)
+                        x = HEADERS["fetch"] + "<" + x
+                        self.comtocol.send_sym(x.encode())
+                    else:
+                        for x in found_info:
+                            success, found_info[i] = self.serialize(x, fetch_type)
+                            i += 1
+                        found_info = json.dumps(found_info)
+                        found_info = HEADERS["fetch"] + "<" + found_info
+                        write_to_log(f"found info serialized is: {found_info}")
+                        self.comtocol.send_sym(found_info.encode())
 
                 else:
                     col_id = message.split(PARAMETER_SEPARATOR)[1]
                     col_id = ObjectId(col_id)
-                    if not chosen_path(self.user_id, col_id):
+                    found_info = chosen_path(self.user_id, col_id)
+                    if not found_info:
                         x = FAILURE_MESSAGE
-                    for x in chosen_path(self.user_id, col_id):
-                        success, x = self.serialize(x, fetch_type)
-
-                if success:
-                    x = HEADERS["fetch"] + "<" + x
-                    self.comtocol.send_sym(x.encode())
-                else:
-                    self.comtocol.send_sym(x.encode())
-
+                        x = HEADERS["fetch"] + "<" + x
+                        self.comtocol.send_sym(x.encode())
+                    else:
+                        for x in found_info:
+                            success, found_info[i] = self.serialize(x, fetch_type)
+                            i += 1
+                        found_info = json.dumps(found_info)
+                        found_info = HEADERS["fetch"] + "<" + found_info
+                        write_to_log(f"found info serialized is: {found_info}")
+                        self.comtocol.send_sym(found_info.encode())
 
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on handle message {e}")
@@ -101,8 +112,8 @@ class ClientHandle:
                 document_info['files'] = temp_list
             elif fetch_type == "files":  # temp fix that has fetch for files not include the file itself
                 document_info['file'] = "PLACEHOLDER"
-            document_info = json.dumps(document_info)
-            print(f"document_info is: {document_info}")
+            # document_info = json.dumps(document_info)    no longer necessary as I just dump the whole list
+            # print(f"document_info is: {document_info}")  instead of dumping every dict
             return True, document_info
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on serialize {e}")
@@ -123,7 +134,7 @@ class ClientHandle:
 
     def find_projects(self, user_id) -> list:
         x = self.DB.fetch_projects(user_id)
-        print(x)
+        print(f"found projects: {x}")
         return x
 
     def find_veins(self, user_id, project_id) -> list:
@@ -135,7 +146,7 @@ class ClientHandle:
         print(user_id)
         print(project_id)
         x = self.DB.fetch_veins_and_nodes(user_id, project_id)
-        print(f"nodes are: {x}")
+        print(f"nodes are: {x[1]}")
         return x[1]
 
     def find_files(self, user_id, node_id) -> list:

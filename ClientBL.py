@@ -49,13 +49,16 @@ class ClientBl:
             x = x.decode()
             if x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 x = x.split(HEADER_SEPARATOR)[1]
-                x = json.loads(x)
-                self.last_fetch_received = x
+                if x == FAILURE_MESSAGE:
+                    write_to_log("[ClientBl] receive handle received failure message from server")
+                    self.last_fetch_received = "Server failed to find requested data"
+                else:
+                    x = json.loads(x)
+                    self.last_fetch_received = x
             elif x.split(HEADER_SEPARATOR)[0] == HEADERS["keygen"]:
                 self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0],
                                                 x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1])
                 self.flags["encrypted"] = True
-            print(x)
 
     def console_handle(self):
         msg = ""
@@ -71,7 +74,21 @@ class ClientBl:
 
     def request_projects(self):
         try:
-            self.comtocol.send_sym("FTCH<projects".encode())
+            self.comtocol.send_sym(f"FTCH<projects".encode())
+            while self.last_fetch_received is None:
+                pass
+            fetch = self.last_fetch_received
+            self.last_fetch_received = None
+            return fetch
+
+        except Exception as e:
+            write_to_log(f"[ClientBL] Exception on request projects {e}")
+            self.last_error = f"Exception in [ClientBL] request projects: {e}"
+            return None
+
+    def request_data(self, data_type: str, project_id):  # valid types are: veins nodes files
+        try:
+            self.comtocol.send_sym(f"FTCH<{data_type}>{project_id}".encode())
             while self.last_fetch_received is None:
                 pass
             fetch = self.last_fetch_received

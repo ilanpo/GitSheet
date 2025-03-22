@@ -296,11 +296,11 @@ class DatabaseManager:
 if __name__ == "__main__":
     pass
 
-    #DB = DatabaseManager("mongodb://localhost:27017/")
+    DB = DatabaseManager("mongodb://localhost:27017/")
     #DB.clear_all_in_collection("files")
     #bool, proj_id = DB.fetch_id("GitSheet", "projects")
     #print(DB.fetch_veins_and_nodes("123", proj_id))
-    #DB.new_project("GitSheet", "123", {"hi": "hello"}, ["123"])
+    DB.new_project("Git33", "1234", {"hi": "hello"}, ["123", "1234"])
     #bool, proj_id = DB.fetch_id("GitSheet", "projects")
     #node_idd, Success1 = DB.new_node(proj_id, ["123"], ["Important info"], {"hi": "bye"})
     #print(DB.fetch_veins_and_nodes("123", ObjectId("67a8ee274a8273e4c778beb2")))
