@@ -17,6 +17,7 @@ class ClientBl:
         }
         self.last_error = "no error registered"
         self.last_fetch_received = None
+        self.last_file_received = None
 
     def init_protocols(self):
         self.comtocol = ComProtocol()
@@ -59,6 +60,8 @@ class ClientBl:
                 self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0],
                                                 x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1])
                 self.flags["encrypted"] = True
+            elif x.split(HEADER_SEPARATOR[0] == HEADERS["file_fetch"]):
+                self.last_file_received = x.split(HEADER_SEPARATOR)[1]
 
     def console_handle(self):
         msg = ""
@@ -86,7 +89,7 @@ class ClientBl:
             self.last_error = f"Exception in [ClientBL] request projects: {e}"
             return None
 
-    def request_data(self, data_type: str, project_id):  # valid types are: veins nodes files
+    def request_data(self, data_type: str, project_id):  # valid types are: veins nodes
         try:
             self.comtocol.send_sym(f"FTCH<{data_type}>{project_id}".encode())
             while self.last_fetch_received is None:
@@ -95,6 +98,14 @@ class ClientBl:
             self.last_fetch_received = None
             return fetch
 
+        except Exception as e:
+            write_to_log(f"[ClientBL] Exception on request projects {e}")
+            self.last_error = f"Exception in [ClientBL] request projects: {e}"
+            return None
+
+    def request_files(self, node_id):
+        try:
+            self.comtocol.send_sym(f"FLFT<{node_id}")
         except Exception as e:
             write_to_log(f"[ClientBL] Exception on request projects {e}")
             self.last_error = f"Exception in [ClientBL] request projects: {e}"

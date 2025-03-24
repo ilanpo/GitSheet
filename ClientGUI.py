@@ -1,4 +1,4 @@
-# from ClientBL import ClientBl as CBL
+from ClientBL import ClientBl as CBL
 
 import dearpygui.dearpygui as ui
 
@@ -81,7 +81,7 @@ class Vein:
         self._start_node = start_node
         self._end_node = end_node
 
-        self._id = ui.add_node_link( start_node.get_input(), end_node.get_output(), parent=self._parent )
+        self._id = ui.add_node_link( start_node.get_output(), end_node.get_input(), parent=self._parent )
 
     def on_press(self):
         if self._callback is None:
@@ -127,7 +127,7 @@ class NodeEditor:
     def __setup_editor(self):
         self._id = ui.add_node_editor(parent=self._parent, minimap=True, minimap_location=ui.mvNodeMiniMap_Location_BottomRight)
 
-    def add_vein(self, vein_tag, start_node: str, end_node: str):
+    def add_vein(self, vein_tag, start_node: Node, end_node: Node):
         if vein_tag in self._veins:
             raise Exception("Why you want to add the same vein tag?!??!!. U F&#@^#$ N$@@3&")
         
@@ -182,12 +182,20 @@ class NodeEditor:
 
         self._veins[tag].on_press()
 
+    def find_node(self, node_tag) -> any:
+
+        if node_tag in self._nodes:
+            return self._nodes[node_tag]
+
+        return None
+
 
 
 class ClientGUI:
 
     _window_tag:    str
     _node_editor:   NodeEditor
+    clientbl: CBL
 
     def __init__(self):
         
@@ -199,6 +207,10 @@ class ClientGUI:
 
         # Create the node editor instance
         self.__create_node_editor()
+
+        self.last_error = "no error registered"
+        self.userid = None
+        self.project_id = "67e1060a24b8276095ef104d"
 
     def __create_window(self):
         
@@ -243,15 +255,15 @@ class ClientGUI:
         self._node_editor = NodeEditor(self._window_tag)
 
         # TODO ! Remove
-        node1 = self._node_editor.add_node( "Node1", "Project1", [100, 400] )
-        node2 = self._node_editor.add_node( "Node2", "Project2", [300, 100] )
-        node3 = self._node_editor.add_node( "Node3", "Project3", [500, 230] )
+        # node1 = self._node_editor.add_node( "Node1", "Project1", [100, 400] )
+        # node2 = self._node_editor.add_node( "Node2", "Project2", [300, 100] )
+        # node3 = self._node_editor.add_node( "Node3", "Project3", [500, 230] )
 
-        node3.attach_callback( self.__test_callback )
+        # node3.attach_callback( self.__test_callback )
 
-        v = self._node_editor.add_vein("Vein1", node1, node2)
+        # v = self._node_editor.add_vein("Vein1", node1, node2)
 
-        v.attach_callback(lambda: print("IDK"))
+        # v.attach_callback(lambda: print("IDK"))
 
     def __test_callback(self):
         self._node_editor.add_node( "Node4", "Project4", [100, 100] )
@@ -278,9 +290,59 @@ class ClientGUI:
         # TODO !!! Clear things you havent on unload
 
     def execute(self):
+        # Initialize protocols
+        self.init_protocols()
+
+        # Connect
+        self.start_client("127.0.0.1", 36969)
+
+        self.clientbl.request_projects()
+
+        # Loads the nodes into the editor
+        self.load_nodes()
+        self.load_veins()
 
         # Actually renders the application
         self.__show_window()
 
         # Unload application
         self.__unload()
+
+    def init_protocols(self):
+        self.clientbl = CBL()
+        self.clientbl.init_protocols()
+
+    def start_client(self, ip, port):
+        self.clientbl.start_client(ip, port)
+
+    def load_nodes(self):
+        nodes: any = self.clientbl.request_data("nodes", self.project_id)
+
+        if type(nodes) == str:
+            return print("FUCK")
+
+        for item in nodes:
+            item: dict = item
+
+            self._node_editor.add_node(item['_id'], item['node_data'][0], [0,0])
+
+
+    def load_veins(self):
+        veins: any = self.clientbl.request_data("veins", self.project_id)
+
+        if type(veins) == str:
+            return print("FUCK")
+
+        for item in veins:
+            item: dict = item
+
+            settings: dict = item["settings"]
+
+            start_node: Node = self._node_editor.find_node(settings["origin"])
+            end_node: Node = self._node_editor.find_node(settings["destination"])
+
+            if start_node is None or end_node is None:
+                print(f"FUCK U NIGGER, INVALID IDS : {settings}")
+                continue
+
+            self._node_editor.add_vein(item["_id"], start_node, end_node)

@@ -111,7 +111,9 @@ class ClientHandle:
                     temp_list.append(str(x))
                 document_info['files'] = temp_list
             elif fetch_type == "files":  # temp fix that has fetch for files not include the file itself
+
                 document_info['file'] = "PLACEHOLDER"
+
             # document_info = json.dumps(document_info)    no longer necessary as I just dump the whole list
             # print(f"document_info is: {document_info}")  instead of dumping every dict
             return True, document_info

@@ -20,7 +20,8 @@ PARAMETER_SEPARATOR = '>'
 HEADERS = {
     "file": "FILE",
     "fetch": "FTCH",
-    "keygen": "KYGN"
+    "keygen": "KYGN",
+    "file_fetch": "FLFT"
 }
 logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
