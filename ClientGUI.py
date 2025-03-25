@@ -1,4 +1,4 @@
-# from ClientBL import ClientBl as CBL
+from ClientBL import ClientBl as CBL
 
 import dearpygui.dearpygui as ui
 
@@ -155,7 +155,7 @@ class NodeEditor:
         
         new_node = Node(self._id, node_tag, name, position, information)
 
-        #self._tags[new_node.get_id()] = node_tag
+        self._tags[new_node.get_id()] = node_tag
         self._nodes[node_tag] = new_node
 
         return new_node
@@ -217,8 +217,10 @@ class ClientGUI:
         self.__load_windows()
 
         self.last_error = "no error registered"
-        self.userid = None
-        self.project_id = "67df08699419db15fe69e840"
+        self.userid = "123"
+        self.all_project_names = []
+        self.all_project_ids = {}
+        self.project_id = None
 
     def __create_window(self):
         
@@ -234,20 +236,18 @@ class ClientGUI:
     def __load_windows(self):
         
         # Create a window instance
-        self._window      = ui.add_window(no_title_bar=True, no_move=True, no_resize=True, no_collapse=True, no_close=True)
+        self._window = ui.add_window(no_title_bar=True, no_move=True, no_resize=True, no_collapse=True, no_close=True)
 
         # First set the login window to be prim
-        ui.set_primary_window( self._window, True )
+        ui.set_primary_window(self._window, True)
 
-        self.__init_login_window( )
+        self.__init_login_window()
 
-        self.__load_menu_bar( )
+        self.__load_menu_bar()
 
         self.__create_node_editor()
 
     def __init_login_window(self):
-
-        # Add Text
         with ui.window(label="Login / Register", no_close=True, no_collapse=True, pos=[200, 200], modal=True, tag="LoginWindow"):
             ui.add_text("GitSheet")
             ui.add_separator()
@@ -280,76 +280,81 @@ class ClientGUI:
         # TODO ! Connect to client by .__get_connection_details( ) details
         # ip: str, port: int = self.__get_connection_details( ) 
         
-        self.__failed_login( "Some error" )
+        self.__failed_login("Some error")
 
         # TODO ! Disconnect
 
     def __press_login( self, *args ):
         
         # TODO ! Send to server login request
-        # TODO ! Connect to client by .__get_connection_details( ) details
-        # ip: str, port: int = self.__get_connection_details( ) 
+        try:
+            ip, port = self.__get_connection_details()
 
-        for item in ui.get_item_children("LoginWindow", slot=1): # Slot 1 is for regular content
-            ui.hide_item(item)
+            self.start_client(ip, port)  # "127.0.0.1", 36969
 
-        # Change the window title
-        ui.set_item_label("LoginWindow", "Project")
-        ui.set_item_height("LoginWindow", 400)
-        ui.set_item_width("LoginWindow", 600)
+            projects = self.clientbl.request_projects()
+            if type(projects) != list:
+                return print("Failed to fetch projects")
+            for project in projects:
+                self.all_project_names.append(project["name"])
+                self.all_project_ids[project["name"]] = project["_id"]
 
-        # TODO ! Get the projects names here
-        #projects_names: list = [ "Project 1", "Project 2", "Project 3" ]
-        projects_names = [ ]
-        for i in range( 1, 20 ):
-            projects_names.append( f"Project {i}" )
+            for item in ui.get_item_children("LoginWindow", slot=1): # Slot 1 is for regular content
+                ui.hide_item(item)
 
-        with ui.group(parent="LoginWindow", horizontal=True):
+            # Change the window title
+            ui.set_item_label("LoginWindow", "Project")
+            ui.set_item_height("LoginWindow", 400)
+            ui.set_item_width("LoginWindow", 600)
 
-            ui.add_listbox(items=projects_names, callback=self.__on_list_press, width=200 )
+            with ui.group(parent="LoginWindow", horizontal=True):
 
-            with ui.group():
-                ui.add_text("Select Project")
-                ui.add_text(f"Project : None", tag="ProjectName")
-                ui.add_button(label="Load Project None", tag="ProjectLoadButton")
+                ui.add_listbox(items=self.all_project_names, callback=self.__on_list_press, width=200 )
+
+                with ui.group():
+                    ui.add_text("Select Project")
+                    ui.add_text(f"Project : None", tag="ProjectName")
+                    ui.add_button(label="Load Project None", tag="ProjectLoadButton")
+        except Exception as e:
+            self.__failed_login(f"Encountered error on login: {e}")
     
-    def __on_list_press( self, sender, app_data ):
+    def __on_list_press(self, sender, app_data):
         
         ui.set_value( "ProjectName", f"{app_data}")
-        ui.configure_item( "ProjectLoadButton", label=f"Load {app_data}" )
+        ui.configure_item("ProjectLoadButton", label=f"Load {app_data}")
 
         # TODO ! Update the callback based on Project name
-        ui.configure_item( "ProjectLoadButton", callback=lambda: self.__load_project(app_data))
+        ui.configure_item("ProjectLoadButton", callback=lambda: self.__load_project(app_data))
 
     def __load_project(self, project_name: str):
-        
-        # TODO Load nodes
-        # TODO Load vein
+        self.project_id = self.all_project_ids[project_name]
+        self.load_nodes()
+        self.load_veins()
 
-        print( f"Loaded {project_name}" )
+        print(f"Loaded {project_name}")
 
         ui.delete_item("LoginWindow")
 
-        node1 = self._node_editor.add_node( "Node1", "Project1", [100, 400], "Some first Node" )
-        node2 = self._node_editor.add_node( "Node2", "Project2", [300, 100], "Extremly aggresive. not recommanded to talk to" )
-        node3 = self._node_editor.add_node( "Node3", "Project3", [500, 230], "Toxic but cute :P" )
+        #node1 = self._node_editor.add_node( "Node1", "Project1", [100, 400], "Some first Node" )
+        #node2 = self._node_editor.add_node( "Node2", "Project2", [300, 100], "Extremly aggresive. not recommanded to talk to" )
+        #node3 = self._node_editor.add_node( "Node3", "Project3", [500, 230], "Toxic but cute :P" )
 
-        node3.attach_callback( self.__test_callback )
+        #node3.attach_callback( self.__test_callback )
 
-        v = self._node_editor.add_vein("Vein1", node1, node2)
-        v2 = self._node_editor.add_vein("Vein2", node1, node3)
+        #v = self._node_editor.add_vein("Vein1", node1, node2)
+        #v2 = self._node_editor.add_vein("Vein2", node1, node3)
 
-        v.attach_callback(self.__add_vein_window)
-        v2.attach_callback(self.__add_vein_window)
+        #v.attach_callback(self.__add_vein_window)
+        #v2.attach_callback(self.__add_vein_window)
 
     def __add_vein_window(self, start_name, end_name):
-        
         with ui.window(label="Vein Info", pos=[200, 200]):
-            ui.add_text( f"Linked {start_name} - {end_name}" )
+            ui.add_text(f"Linked {start_name} - {end_name}")
         
-    def __failed_login( self, reason: str ):
-
-        print( reason )
+    def __failed_login( self, reason):
+        with ui.window(label="Error", pos=[200, 200]):
+            ui.add_text(f"{reason}!")
+        print(f"{reason}!")
 
     def __get_connection_details(self) -> tuple:
         return ui.get_value("IpInput"), int(ui.get_value("PortInput"))
@@ -373,29 +378,19 @@ class ClientGUI:
         # Destroy context
         ui.destroy_context()
 
-        # self.stop_client()
+        self.stop_client()
 
         # TODO !!! Clear things you havent on unload
 
     def execute(self):
         # Initialize protocols
-        #self.init_protocols()
-
-        # Connect
-        # self.start_client("127.0.0.1", 36969)
- 
-        #self.clientbl.request_projects()
-
-        # Loads the nodes into the editor
-        #self.load_nodes()
-        #self.load_veins()
+        self.init_protocols()
 
         # Actually renders the application
         self.__show_window()
 
         # Unload application
         self.__unload()
-
 
     def __load_menu_bar(self):
 
@@ -411,16 +406,14 @@ class ClientGUI:
         with ui.menu(parent=menu_bar_id, label="Help"):
             ui.add_menu_item(label="IDK")
             ui.add_menu_item(label="ITEM")
-        
 
     def __create_node_editor(self):
-        
         self._node_editor = NodeEditor(self._window)
 
     def __test_callback(self):
-        self._node_editor.add_node( "Node4", "Project4", [100, 100] )
+        self._node_editor.add_node("Node4", "Project4", [100, 100],  "im test")
 
-    """def init_protocols(self):
+    def init_protocols(self):
         self.clientbl = CBL()
         self.clientbl.init_protocols()
 
@@ -429,7 +422,6 @@ class ClientGUI:
 
     def stop_client(self):
         self.clientbl.disconnect()
-    """
     
     def load_nodes(self):
         nodes: any = self.clientbl.request_data("nodes", self.project_id)

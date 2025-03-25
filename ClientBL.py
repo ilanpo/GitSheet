@@ -1,5 +1,5 @@
 import os.path
-import threading
+# import threading
 import json
 
 from Protocol.CommProtocol import *
