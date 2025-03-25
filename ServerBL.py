@@ -33,6 +33,7 @@ class ClientHandle:
                     if data == DISCONNECT_MESSAGE:
                         write_to_log("Got disconnect message!")
                         self.connected = False
+                        # self.comtocol.send_sym("Disconnecting".encode())
                     self.handle_message(data)
 
         except Exception as e:
@@ -42,6 +43,16 @@ class ClientHandle:
 
     def handle_message(self, message):
         try:
+            if message.split(HEADER_SEPARATOR)[0] == HEADERS["file_fetch"]:
+                node_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
+                file_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
+                files = self.find_files(self.user_id, ObjectId(node_id))
+                file = None
+                for x in files:
+                    if x["_id"] == ObjectId(file_id):
+                        file = x
+                if file:
+                    self.comtocol.send_raw_sym(file["file"])
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["file"]:
                 self.file_reception(message)
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
@@ -123,11 +134,18 @@ class ClientHandle:
             return False, None
 
     def file_reception(self, message):
-        file_name = message.split(HEADER_SEPARATOR)[1]
+        message = message.split(HEADER_SEPARATOR)[1]
+        file_name = message.split(PARAMETER_SEPARATOR)[0]
+        node_id = message.split(PARAMETER_SEPARATOR)[1]
         try:
             with open(f"{file_name}", "wb") as file:
                 success, raw = self.comtocol.receive_raw_sym()
-                file.write(raw)
+                if raw:
+                    self.DB.new_file(ObjectId(node_id), [self.user_id], raw, {"Name": file_name})
+                    file.write(raw)
+                else:
+                    write_to_log("[ClientHandle] file reception received no file")
+                    return False
             return True
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on file reception {e}")
@@ -205,15 +223,13 @@ class ServerBL:
     def connection_manager(self):
         self.flags["running"] = True
         try:
-            while self.flags["running"]:
+            while self.flags["running"] == True:
                 cl_socket, cl_addr = self.comtocol.accept_handler(5)
                 if cl_socket:
                     new_client = ClientHandle(cl_addr[0], cl_addr[1], cl_socket)
                     thread = threading.Thread(target=new_client.handle_client)
                     write_to_log(f"[ServerBL] Active connections: {threading.active_count()}")
                     thread.start()
-                if input() == 'STOP':
-                    self.flags["running"] = False
         except Exception as e:
             write_to_log(f"[ServerBL] Exception on connection manager {e}")
             self.last_error = f"Exception in [ServerBL] connection manager: {e}"

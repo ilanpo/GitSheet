@@ -210,7 +210,7 @@ class ClientGUI:
 
         self.last_error = "no error registered"
         self.userid = None
-        self.project_id = "67e1060a24b8276095ef104d"
+        self.project_id = "67df08699419db15fe69e840"
 
     def __create_window(self):
         
@@ -280,12 +280,14 @@ class ClientGUI:
             # Render the frame
             ui.render_dearpygui_frame( )
 
-        ui.start_dearpygui()
+        # ui.start_dearpygui()
 
     def __unload(self):
 
         # Destroy context
         ui.destroy_context()
+
+        self.stop_client()
 
         # TODO !!! Clear things you havent on unload
 
@@ -315,6 +317,9 @@ class ClientGUI:
     def start_client(self, ip, port):
         self.clientbl.start_client(ip, port)
 
+    def stop_client(self):
+        self.clientbl.disconnect()
+
     def load_nodes(self):
         nodes: any = self.clientbl.request_data("nodes", self.project_id)
 
@@ -326,12 +331,11 @@ class ClientGUI:
 
             self._node_editor.add_node(item['_id'], item['node_data'][0], [0,0])
 
-
     def load_veins(self):
         veins: any = self.clientbl.request_data("veins", self.project_id)
 
         if type(veins) == str:
-            return print("FUCK")
+            return print("type(veins) == str")
 
         for item in veins:
             item: dict = item
@@ -342,7 +346,7 @@ class ClientGUI:
             end_node: Node = self._node_editor.find_node(settings["destination"])
 
             if start_node is None or end_node is None:
-                print(f"FUCK U NIGGER, INVALID IDS : {settings}")
+                print(f"INVALID IDS : {settings}")
                 continue
 
             self._node_editor.add_vein(item["_id"], start_node, end_node)

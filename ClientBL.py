@@ -35,8 +35,12 @@ class ClientBl:
             sym_key, init_vec = self.comtocol.gen_symmetric_key()
             self.comtocol.send_asym(sym_key)
             self.comtocol.send_asym(init_vec)
-            thread = threading.Thread(target=self.receive_handle)
-            thread.start()
+            # success, x = self.comtocol.receive_sym()
+            # self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0],
+            #                                 x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1])
+            self.flags["encrypted"] = True
+            # thread = threading.Thread(target=self.receive_handle)
+            # thread.start()
             return True
 
         except Exception as e:
@@ -48,7 +52,9 @@ class ClientBl:
         while self.flags["running"]:
             success, x = self.comtocol.receive_sym()
             x = x.decode()
-            if x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
+            if x == "Disconnecting":
+                return
+            elif x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 x = x.split(HEADER_SEPARATOR)[1]
                 if x == FAILURE_MESSAGE:
                     write_to_log("[ClientBl] receive handle received failure message from server")
@@ -78,10 +84,15 @@ class ClientBl:
     def request_projects(self):
         try:
             self.comtocol.send_sym(f"FTCH<projects".encode())
-            while self.last_fetch_received is None:
-                pass
-            fetch = self.last_fetch_received
-            self.last_fetch_received = None
+            success, x = self.comtocol.receive_sym()
+            x = x.decode()
+            x = x.split(HEADER_SEPARATOR)[1]
+            if x == FAILURE_MESSAGE:
+                write_to_log("[ClientBl] request projects received failure message from server")
+                fetch = "Server failed to find requested projects"
+            else:
+                x = json.loads(x)
+                fetch = x
             return fetch
 
         except Exception as e:
@@ -89,13 +100,19 @@ class ClientBl:
             self.last_error = f"Exception in [ClientBL] request projects: {e}"
             return None
 
-    def request_data(self, data_type: str, project_id):  # valid types are: veins nodes
-        try:
+    def request_data(self, data_type: str, project_id):  # valid types are: veins nodes files (when requesting files
+                                                         # note that you're requesting the file INFO not the file itself)
+        try:                                             # also for files you need to input node_id not project id
             self.comtocol.send_sym(f"FTCH<{data_type}>{project_id}".encode())
-            while self.last_fetch_received is None:
-                pass
-            fetch = self.last_fetch_received
-            self.last_fetch_received = None
+            success, x = self.comtocol.receive_sym()
+            x = x.decode()
+            x = x.split(HEADER_SEPARATOR)[1]
+            if x == FAILURE_MESSAGE:
+                write_to_log("[ClientBl] request data received failure message from server")
+                fetch = "Server failed to find requested data"
+            else:
+                x = json.loads(x)
+                fetch = x
             return fetch
 
         except Exception as e:
@@ -103,24 +120,45 @@ class ClientBl:
             self.last_error = f"Exception in [ClientBL] request projects: {e}"
             return None
 
-    def request_files(self, node_id):
+    def request_file(self, node_id, file_id, file_name):
         try:
-            self.comtocol.send_sym(f"FLFT<{node_id}")
+            file_dir = os.path.dirname(os.path.realpath('__file__'))
+            file_name = os.path.join(file_dir, f'Files/{file_name}')
+            self.comtocol.send_sym(f"FLFT<{node_id}>{file_id}".encode())
+            success, file = self.comtocol.receive_raw_sym()
+            with open(file_name, "wb") as new_file:
+                new_file.write(file)
+            return success
         except Exception as e:
             write_to_log(f"[ClientBL] Exception on request projects {e}")
             self.last_error = f"Exception in [ClientBL] request projects: {e}"
-            return None
+            return False
+
+    def upload_file(self, file_name, node_id):
+        self.comtocol.send_sym(f"FILE<{file_name}>{node_id}".encode())
+        self.file_send(file_name)
 
     def file_send(self, file_name):
-        with open("example.pdf", "rb") as file:
+        with open(file_name, "rb") as file:
             self.comtocol.send_raw_sym(file.read())
+
+    def disconnect(self):
+        msg = DISCONNECT_MESSAGE
+        self.comtocol.send_sym(msg.encode())
+        self.flags["running"] = False
 
 
 if __name__ == "__main__":
     Client = ClientBl()
     Client.init_protocols()
     Client.start_client("127.0.0.1", 36969)
-    print(Client.request_projects()["_id"])
+    projects = Client.request_projects()
+    print(projects)
+    node_id = Client.request_data("nodes", projects[1]["_id"])[0]
+    print(node_id)
+    print(Client.request_data("files", node_id["_id"]))
+    # Client.upload_file("Example.txt", "67e2b91e9a082c22cae2e99c")
+    # print(Client.request_file("67e2b91e9a082c22cae2e99c", "67e2cfdf2ee6b3f796bfa17d", "Example.txt"))
     Client.console_handle()  # command should look like this: FTCH<nodes>67a8ee274a8273e4c778beb2
                                                     # (  type of command < parameter 1 > parameter 2 )
 
