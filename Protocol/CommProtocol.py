@@ -172,6 +172,13 @@ class ComProtocol:
         self.socket = c_socket
 
     def connect(self, ip: str, port: int, connection_type: str) -> bool:
+        """
+
+        :param ip:
+        :param port:
+        :param connection_type:
+        :return:
+        """
         self.ip = ip
         self.port = port
         self.connection_type = connection_type
@@ -197,8 +204,8 @@ class ComProtocol:
             return self.socket.accept()
 
         except Exception as e:
-            #write_to_log(f"[ComProtocol] Exception on accept handler {e}")
-            #self.last_error = f"Exception in ComProtocol accept handler: {e}"
+            write_to_log(f"[ComProtocol] Exception on accept handler {e}")
+            self.last_error = f"Exception in ComProtocol accept handler: {e}"
             return None, None
 
     def send(self, msg: str) -> bool:
@@ -216,7 +223,7 @@ class ComProtocol:
             self.cryptocol.generate_asymmetric_key()
             value = self.cryptocol.get_public_key()
             value_len = str(len(value)).zfill(HEADER_SIZE)
-            msg = f"{value_len}0{value.decode()}"
+            msg = f"{value_len}{value.decode()}"
             self.socket.send(msg.encode())
             return True
         except Exception as e:
@@ -225,11 +232,16 @@ class ComProtocol:
             return False
 
     def send_asym(self, value: bytes):
+        """
+        Sends two messages one containing the length of both messages and another containing an asymmetrically encrypted message
+        :param value: raw message
+        :return: True or False if messages were sent
+        """
         try:
             success, value = self.cryptocol.encrypt_asymmetric(value)
             value_len = str(len(value)).zfill(HEADER_SIZE)
             msg_len = str(len(value_len)).zfill(HEADER_SIZE)
-            msg = f"{msg_len}0{value_len}"
+            msg = f"{msg_len}{value_len}"
             self.socket.send(msg.encode())
             self.socket.send(value)
             return True
@@ -239,11 +251,16 @@ class ComProtocol:
             return False
 
     def send_sym(self, value: bytes):
+        """
+        Sends two messages one containing the length of both messages and another containing a symmetrically encrypted message
+        :param value: raw message
+        :return: True or False if messages were sent
+        """
         try:
             success, value = self.cryptocol.encrypt_symmetric(value)
             value_len = str(len(value)).zfill(HEADER_SIZE)
             msg_len = str(len(value_len)).zfill(HEADER_SIZE)
-            msg = f"{msg_len}0{value_len}"
+            msg = f"{msg_len}{value_len}"
             self.socket.send(msg.encode())
             self.socket.send(value)
             return True
@@ -253,11 +270,16 @@ class ComProtocol:
             return False
 
     def send_raw_sym(self, value: bytes):
+        """
+        sends a message containing the length of the information then sends messages until all the information is transmitted
+        :param value: raw info
+        :return: True or False if messages were sent
+        """
         try:
             success, value = self.cryptocol.encrypt_symmetric(value)
             value_len = str(len(value)).zfill(HEADER_SIZE)
             msg_len = str(len(value_len)).zfill(HEADER_SIZE)
-            msg = f"{msg_len}0{value_len}"
+            msg = f"{msg_len}{value_len}"
             self.socket.send(msg.encode())
             len_sent = 0
             while len_sent < len(value):
@@ -350,7 +372,7 @@ class ComProtocol:
     def receive_asym(self):
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
-            is_raw = self.socket.recv(1).decode()
+
 
             bytes_len = self.socket.recv(length).decode()
             data = self.socket.recv(int(bytes_len))
@@ -365,7 +387,7 @@ class ComProtocol:
     def receive_sym(self):
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
-            is_raw = self.socket.recv(1).decode()
+
 
             bytes_len = self.socket.recv(length).decode()
             data = self.socket.recv(int(bytes_len))
@@ -380,7 +402,7 @@ class ComProtocol:
     def receive_raw_sym(self):
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
-            is_raw = self.socket.recv(1).decode()
+
             file_length = int(self.socket.recv(length).decode())
             raw_data: bytes = b""
             while len(raw_data) < file_length:

@@ -20,9 +20,19 @@ class ClientBl:
         self.last_file_received = None
 
     def init_protocols(self):
+        """
+        This function starts the comprotocol
+        :return: none
+        """
         self.comtocol = ComProtocol()
 
     def start_client(self, ip: str, port: int) -> bool:
+        """
+        Recieves public key then generates and sends symmetric key
+        :param ip: ip of server
+        :param port: port of server
+        :return: True or False if the function succeeded
+        """
         write_to_log("[ClientBL] Client starting")
 
         try:
@@ -49,6 +59,10 @@ class ClientBl:
             return False
 
     def receive_handle(self):
+        """
+
+        :return:
+        """
         while self.flags["running"]:
             success, x = self.comtocol.receive_sym()
             x = x.decode()

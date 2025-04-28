@@ -20,6 +20,10 @@ class ClientHandle:
         self.last_error = "no error registered"
 
     def handle_client(self):
+        """
+        Sends public key, receives symmetric key from client and receives all messages from client
+        :return: none
+        """
         try:
             self.comtocol.send_public_key()
             success, sym_key = self.comtocol.receive_asym()
@@ -42,6 +46,11 @@ class ClientHandle:
             return False
 
     def handle_message(self, message):
+        """
+
+        :param message:
+        :return:
+        """
         try:
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["file_fetch"]:
                 node_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
@@ -203,9 +212,19 @@ class ServerBL:
             pass
 
     def init_protocols(self):
+        """
+        inits comprotocol for later use
+        :return:  none
+        """
         self.comtocol = ComProtocol()
 
     def start_server(self, ip: str, port: int) -> bool:
+        """
+        starts the server with listen ip and port specified
+        :param ip: listen ip of server
+        :param port: port of server
+        :return: True or false whether the server managed to start
+        """
         write_to_log("[ServerBL] Server starting")
 
         try:
