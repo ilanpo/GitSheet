@@ -168,7 +168,7 @@ if __name__ == "__main__":
     Client.start_client("127.0.0.1", 36969)
     projects = Client.request_projects()
     print(projects)
-    node_id = Client.request_data("nodes", projects[1]["_id"])[0]
+    node_id = Client.request_data("nodes", projects[0]["_id"])[0]
     print(node_id)
     print(Client.request_data("files", node_id["_id"]))
     # Client.upload_file("Example.txt", "67e2b91e9a082c22cae2e99c")

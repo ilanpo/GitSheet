@@ -303,7 +303,7 @@ if __name__ == "__main__":
     DB.clear_all_in_collection("veins")"""
     #bool, proj_id = DB.fetch_id("GitSheet", "projects")
     #print(DB.fetch_veins_and_nodes("123", proj_id))
-    #DB.new_project("Git3345", "1234", {"hi": "hello"}, ["123", "1234"])
+    DB.new_project("Git33", "1234", {"hi": "hello"}, ["123", "1234"])
     bool, proj_id = DB.fetch_id("Git33", "projects")
     #print(proj_id)
     node_idd, Success1 = DB.new_node(proj_id, ["123"], ["Important info"], {"hi": "bye"})
@@ -316,5 +316,5 @@ if __name__ == "__main__":
     #DB.push_to_dict(proj_id, "projects", "add", "4321", "permission")
     DB.print_all_in_collection("nodes")
     DB.print_all_in_collection("files")
-    print(DB.fetch_files("123", ObjectId("67e2b91e9a082c22cae2e99c")))
+    #print(DB.fetch_files("123", ObjectId("67e2b91e9a082c22cae2e99c")))
     #print(DB.remove_entry(proj_id, "projects"))

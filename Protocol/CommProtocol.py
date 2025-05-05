@@ -210,7 +210,7 @@ class ComProtocol:
 
     def send(self, msg: str) -> bool:
         try:
-            msg = self.format_value(msg, False)
+            msg = self.format_value(msg)
             self.socket.send(msg.encode())
             return True
         except Exception as e:
@@ -300,7 +300,7 @@ class ComProtocol:
     def send_raw(self, raw: bytes):
         try:
             raw_len = len(raw)
-            msg = self.format_value(str(raw_len), True)
+            msg = self.format_value(str(raw_len))
             self.socket.send(msg.encode())
             len_sent = 0
             while len_sent < raw_len:
@@ -321,12 +321,12 @@ class ComProtocol:
     def set_symmetric_key(self, sym_key, init_vector):
         self.cryptocol.set_symmetric_key(sym_key, init_vector)
 
-    def format_value(self, value: str, is_raw: bool):
+    def format_value(self, value: str):
         success, value = self.cryptocol.encrypt_symmetric(value.encode())
         if success:
             #value = value.decode()
             value_len = str(len(value)).zfill(HEADER_SIZE)
-            return f"{ value_len }{ is_raw and 1 or 0 }{ value }"
+            return f"{ value_len }{ value }"
         else:
             return None
 
@@ -355,10 +355,6 @@ class ComProtocol:
     def receive_public_key(self):
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
-            is_raw = self.socket.recv(1).decode()
-            if is_raw == "1":
-                length_raw = self.socket.recv(length).decode()
-                return self.raw_receive(int(length_raw))
 
             data = self.socket.recv(length)
             self.cryptocol.set_public_key(data)
