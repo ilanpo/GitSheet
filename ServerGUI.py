@@ -1,5 +1,6 @@
 from ServerBL import *
 
+
 class ServerGUI:
 
     server_logic: ServerBL
@@ -13,9 +14,9 @@ class ServerGUI:
         self.__start_server( )
 
     def __start_server(self):
-        ip_to_listen: str = input( "Type IP for the server to listen : " )
-        port: str = input( "Enter Port value of the server : " )
-
+        # ip_to_listen: str = input("Type IP for the server to listen : ") Just listen to all
+        port: str = input("Enter Port value of the server : ")
+        ip_to_listen = "0.0.0.0"
         try:
             port: int = int(port)
         except Exception as e:

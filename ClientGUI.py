@@ -198,6 +198,18 @@ class NodeEditor:
 
         return None
 
+    def return_positions(self):
+        positions = {}
+        for item in self._nodes:
+            pos = ui.get_item_pos(item)
+            positions[item] = pos
+        return positions
+
+    def clear_editor(self):
+        ui.delete_item(self._id, children_only=True)
+        self._veins.clear()
+        self._nodes.clear()
+        self._tags.clear()
 
 
 class ClientGUI:
@@ -205,8 +217,6 @@ class ClientGUI:
     _window:      str
 
     _node_editor:   NodeEditor
-
-    # clientbl: CBL
 
     def __init__(self):
         
@@ -254,11 +264,11 @@ class ClientGUI:
             
             with ui.group(horizontal=True):
                 ui.add_text("Ip:")
-                ui.add_input_text(width=200, tag="IpInput")
+                ui.add_input_text(width=200, tag="IpInput", default_value="127.0.0.1")
 
             with ui.group(horizontal=True):
                 ui.add_text("Port:")
-                ui.add_input_text(width=200, tag="PortInput")
+                ui.add_input_text(width=200, tag="PortInput", default_value="7007")
 
             ui.add_separator()
 
@@ -274,7 +284,7 @@ class ClientGUI:
                 ui.add_button(label="Register", callback=self.__press_register )
                 ui.add_button(label="Login", callback=self.__press_login )
 
-    def __press_register( self ):
+    def __press_register(self):
         
         # TODO ! Send to server register request
         # TODO ! Connect to client by .__get_connection_details( ) details
@@ -284,7 +294,7 @@ class ClientGUI:
 
         # TODO ! Disconnect
 
-    def __press_login( self, *args ):
+    def __press_login(self, *args):
         
         # TODO ! Send to server login request
         try:
@@ -401,11 +411,25 @@ class ClientGUI:
             ui.add_menu_item(label="Test2")
             ui.add_menu_item(label="Test3")
             ui.add_separator()
-            ui.add_menu_item(label="Test4")
+            ui.add_menu_item(label="Save new position", callback=self.__callback_save_position)
 
         with ui.menu(parent=menu_bar_id, label="Help"):
             ui.add_menu_item(label="IDK")
             ui.add_menu_item(label="ITEM")
+
+        with ui.menu(parent=menu_bar_id, label="View"):
+            ui.add_menu_item(label="Refresh", callback=self.__callback_refresh_button)
+
+    def __callback_refresh_button(self):
+        self._node_editor.clear_editor()
+        self.load_nodes()
+        self.load_veins()
+        print("Refreshed editor")
+
+    def __callback_save_position(self):
+        positions = self._node_editor.return_positions()
+        print(positions)
+
 
     def __create_node_editor(self):
         self._node_editor = NodeEditor(self._window)
@@ -432,7 +456,7 @@ class ClientGUI:
         for item in nodes:
             item: dict = item
 
-            self._node_editor.add_node(item['_id'], item['node_data'][0], [0,0], "Info")
+            self._node_editor.add_node(item['_id'], item['node_data'][0], [item['settings']["x"],item['settings']["y"]], "Info")
 
     def load_veins(self):
         veins: any = self.clientbl.request_data("veins", self.project_id)

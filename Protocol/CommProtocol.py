@@ -21,7 +21,8 @@ HEADERS = {
     "file": "FILE",
     "fetch": "FTCH",
     "keygen": "KYGN",
-    "file_fetch": "FLFT"
+    "file_fetch": "FLFT",
+    "update": "UPDT"
 }
 logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
