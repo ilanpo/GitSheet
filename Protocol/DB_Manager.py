@@ -177,10 +177,13 @@ class DatabaseManager:
     def fetch_user(self, username):
         query = {"name": username}
 
-        x = self.veins_col.find_one(query)
-        password = x.get("password")
-        user_id = x.get("_id")
-        return password, user_id
+        x = self.users_col.find_one(query)
+        if x:
+            password = x.get("password")
+            user_id = x.get("_id")
+            return True, password, user_id
+        else:
+            return False, None, None
         
 
 

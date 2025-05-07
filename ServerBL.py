@@ -54,18 +54,30 @@ class ClientHandle:
         try:
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["login"]:
                 username = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
+                print(username)
                 password = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
+                print(password)
                 success = self.login(username, password)
                 if success:
-                    self.comtocol.send_sym("login successful")
+                    self.comtocol.send_sym("login successful".encode())
                 else:
-                    self.comtocol.send_sym(FAILURE_MESSAGE)
+                    self.comtocol.send_sym(FAILURE_MESSAGE.encode())
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["create"]:
                 data_type = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
-                if data_type == "user":
-                    username = message.split(PARAMETER_SEPARATOR[1])
-                    password = message.split(PARAMETER_SEPARATOR[2])
-                    self.add_entry(data_type, [username, password])
+                print(message)
+                try:
+                    if data_type == "user":
+                        username = message.split(PARAMETER_SEPARATOR)[1]
+                        print(username)
+                        password = message.split(PARAMETER_SEPARATOR)[2]
+                        print(password)
+                        self.add_entry(data_type, [username, password])
+                    else:
+                        self.add_entry(data_type, [message.split(PARAMETER_SEPARATOR)[1], message.split(PARAMETER_SEPARATOR)[2],
+                                       message.split(PARAMETER_SEPARATOR)[3], message.split(PARAMETER_SEPARATOR)[4]])
+                    self.comtocol.send_sym(f"Successfully added {data_type}".encode())
+                except Exception as e:
+                    self.comtocol.send_sym(str(e).encode())
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["file_fetch"]:
                 node_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
                 file_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
@@ -214,10 +226,12 @@ class ClientHandle:
         return x
     
     def login(self, username, password):
-        found_password, user_id = self.DB.fetch_user(username)
-        if password == found_password:
-            self.user_id = user_id
-            return True
+        success, found_password, user_id = self.DB.fetch_user(username)
+        if success:
+            if password == found_password:
+                self.user_id = username
+                print(f"user_id is now {username}")
+                return True
         return False
 
 

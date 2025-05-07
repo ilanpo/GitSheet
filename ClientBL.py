@@ -153,12 +153,16 @@ class ClientBl:
             return False
 
     def login(self, username, password):
-        self.comtocol.send_sym(f"LGIN<{username}>{password}")
+        self.comtocol.send_sym(f"LGIN<{username}>{password}".encode())
         success, x = self.comtocol.receive_sym()
+        x = x.decode()
         return x
 
     def register(self, username, password):
         self.comtocol.send_sym(f"CRET<user>{username}>{password}".encode())
+        success, x = self.comtocol.receive_sym()
+        x = x.decode()
+        return x
 
     def upload_file(self, file_name, node_id):
         self.comtocol.send_sym(f"FILE<{file_name}>{node_id}".encode())
@@ -173,6 +177,7 @@ class ClientBl:
         print(settings)
         self.comtocol.send_sym(f"UPDT<{item_id}>{collection}>settings>{settings}".encode())
         success, x = self.comtocol.receive_sym()
+        x = x.decode()
         if not success:
             return FAILURE_MESSAGE
         else:
