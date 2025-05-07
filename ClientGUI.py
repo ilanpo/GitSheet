@@ -201,6 +201,7 @@ class NodeEditor:
     def return_positions(self):
         positions = {}
         for item in self._nodes:
+            print(item)
             pos = ui.get_item_pos(item)
             positions[item] = pos
         return positions

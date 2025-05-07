@@ -64,6 +64,10 @@ class ClientHandle:
                     self.comtocol.send_raw_sym(file["file"])
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["file"]:
                 self.file_reception(message)
+            if message.split(HEADER_SEPARATOR)[0] == HEADERS["update"]:
+                x = FAILURE_MESSAGE
+                message_start = message.split(PARAMETER_SEPARATOR)[0]
+                fetch_type = message_start.split(HEADER_SEPARATOR)[1]
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 path_collection = {
                     "projects": self.find_projects,
@@ -247,7 +251,7 @@ class ServerBL:
                 if cl_socket:
                     new_client = ClientHandle(cl_addr[0], cl_addr[1], cl_socket)
                     thread = threading.Thread(target=new_client.handle_client)
-                    write_to_log(f"[ServerBL] Active connections: {threading.active_count()}")
+                    write_to_log(f"[ServerBL] Active connections: {threading.active_count() - 2}")
                     thread.start()
         except Exception as e:
             write_to_log(f"[ServerBL] Exception on connection manager {e}")
