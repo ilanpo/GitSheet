@@ -432,7 +432,8 @@ class ClientGUI:
         positions = self._node_editor.return_positions()
         print(positions)
         for item in positions:
-            self.clientbl.update_position("nodes", item, positions[item])
+            settings = {"x": positions[item][0], "y": positions[item][1]}
+            self.clientbl.update_position("nodes", item, settings)
 
 
     def __create_node_editor(self):

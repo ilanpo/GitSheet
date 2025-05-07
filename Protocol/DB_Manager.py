@@ -314,7 +314,7 @@ if __name__ == "__main__":
     #file_idd, Success2 = DB.new_file(node_idd, ["123"], b"1001", {"default": "settings"})
     #print(Success)
     #DB.push_to_dict(proj_id, "projects", "add", "4321", "permission")
-    #DB.print_all_in_collection("nodes")
+    DB.print_all_in_collection("nodes")
     #DB.print_all_in_collection("files")
     #print(DB.fetch_files("123", ObjectId("67e2b91e9a082c22cae2e99c")))
     #print(DB.remove_entry(proj_id, "projects"))

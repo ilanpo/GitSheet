@@ -71,7 +71,11 @@ class ClientHandle:
                 collection = message.split(PARAMETER_SEPARATOR)[1]
                 change_type = message.split(PARAMETER_SEPARATOR)[2]
                 change = message.split(PARAMETER_SEPARATOR)[3]
-                success = self.update_entry(item_id, collection, "replace", change, change_type)
+                print(change)
+                change = json.loads(change)
+                print(change)
+                print(type(change))
+                success = self.update_entry(ObjectId(item_id), collection, "replace", change, change_type)
                 if success:
                     x = f"Successfully updated entry {item_id} in collection {collection} with {change} in field {change_type}"
                 self.comtocol.send_sym(x)

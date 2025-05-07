@@ -156,9 +156,10 @@ class ClientBl:
         with open(file_name, "rb") as file:
             self.comtocol.send_raw_sym(file.read())
 
-    def update_position(self, collection: str, item_id: str, position: list) -> str:
-        position = json.dumps(position)
-        self.comtocol.send_sym(f"UPDT<{item_id}>{collection}>nodes>{position}".encode())
+    def update_position(self, collection: str, item_id: str, settings: dict) -> str:
+        settings = json.dumps(settings)
+        print(settings)
+        self.comtocol.send_sym(f"UPDT<{item_id}>{collection}>settings>{settings}".encode())
         success, x = self.comtocol.receive_sym()
         if not success:
             return FAILURE_MESSAGE
