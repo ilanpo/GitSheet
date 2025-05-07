@@ -15,6 +15,9 @@ class Node:
     _info:      str # Wow
     _callback:  any
 
+    _callback_download_file:    any
+    _callback_open_file:        any
+
     _input_id:  int
     _output_id: int
 
@@ -41,6 +44,8 @@ class Node:
         with ui.node_attribute(parent=self._id):
             #ui.add_button(label=f"Press to add another Node", callback=self.__callback_wrap)
             ui.add_text( self._info )
+            ui.add_button(label="Download File", callback=self.__callback_download_file)
+            ui.add_button(label="Open File", callback=self.__callback_open_file)
         
     def __callback_wrap(self, *args):
         
@@ -48,6 +53,18 @@ class Node:
             return
         
         self._callback()
+
+    def __callback_download_file(self, *args):
+        if self._callback_download_file is None:
+            return
+
+        self._callback_download_file( self._tag )
+
+    def __callback_open_file(self, *args):
+        if self.__callback_open_file is None:
+            return
+
+        self.__callback_open_file( self._tag )
 
     def get_id(self):
         return self._id
@@ -64,8 +81,20 @@ class Node:
     def get_output(self):
         return self._output_id
     
-    def attach_callback(self, new_callback):
-        self._callback = new_callback
+    def attach_callback(self, new_callback, callback_type: int = 1):
+
+        if callback_type == 1:
+            self._callback = new_callback
+            return
+
+        if callback_type == 2:
+            self._callback_download_file = new_callback
+            return
+
+        if callback_type == 3:
+            self._callback_open_file = new_callback
+            return
+
 
 
 class Vein:
@@ -287,7 +316,7 @@ class ClientGUI:
                 ui.add_button(label="Login", callback=self.__press_login )
 
     def __press_register(self):
-
+        pass
         
         
 
@@ -338,7 +367,6 @@ class ClientGUI:
         ui.set_value( "ProjectName", f"{app_data}")
         ui.configure_item("ProjectLoadButton", label=f"Load {app_data}")
 
-        # TODO ! Update the callback based on Project name
         ui.configure_item("ProjectLoadButton", callback=lambda: self.__load_project(app_data))
 
     def __load_project(self, project_name: str):
@@ -363,8 +391,16 @@ class ClientGUI:
         #v2.attach_callback(self.__add_vein_window)
 
     def __add_vein_window(self, start_name, end_name):
+
         with ui.window(label="Vein Info", pos=[200, 200]):
-            ui.add_text(f"Linked {start_name} - {end_name}")
+            ui.add_input_text(multiline=True, default_value=f"Linked {start_name} - {end_name}", tag="VeinValue")
+            ui.add_button(label="Save changes", callback=self.__callback_save_vein)
+
+    def __callback_save_vein(self, *args):
+        value = ui.get_value("VeinValue")
+        print(value)
+
+        # TODO: Send this value
         
     def __failed_login( self, reason):
         with ui.window(label="Error", pos=[200, 200]):
@@ -422,14 +458,22 @@ class ClientGUI:
             ui.add_menu_item(label="IDK")
             ui.add_menu_item(label="ITEM")
 
-        with ui.menu(parent=menu_bar_id, label="View"):
+        with ui.menu(parent=menu_bar_id, label="Project"):
             ui.add_menu_item(label="Refresh", callback=self.__callback_refresh_button)
+            ui.add_menu_item(label="Add Node", callback=self.__callback_add_node)
+            ui.add_menu_item(label="Add Vein", callback=self.__callback_add_vein)
 
     def __callback_refresh_button(self):
         self._node_editor.clear_editor()
         self.load_nodes()
         self.load_veins()
         print("Refreshed editor")
+
+    def __callback_add_node(self):
+        pass
+
+    def __callback_add_vein(self):
+        pass
 
     def __callback_save_position(self):
         positions = self._node_editor.return_positions()
@@ -464,7 +508,19 @@ class ClientGUI:
         for item in nodes:
             item: dict = item
 
-            self._node_editor.add_node(item['_id'], item['node_data'][0], [item['settings']["x"],item['settings']["y"]], "Info")
+            current_node = self._node_editor.add_node(item['_id'], item['node_data'][0], [item['settings']["x"],item['settings']["y"]], "Info")
+            current_node.attach_callback(self.__download_file, 2)
+            current_node.attach_callback(self.__open_file, 3)
+
+    def __download_file(self, node_tag):
+        print(f"Need to download file from node { node_tag }")
+
+        # TODO ! Download file based on node tag
+
+    def __open_file(self, node_tag):
+        print(f"Need to open from node { node_tag }")
+
+        # TODO ! Perform open file based on node tag
 
     def load_veins(self):
         veins: any = self.clientbl.request_data("veins", self.project_id)
