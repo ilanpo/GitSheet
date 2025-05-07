@@ -18,6 +18,7 @@ class ClientBl:
         self.last_error = "no error registered"
         self.last_fetch_received = None
         self.last_file_received = None
+        self.last_login_request = None
 
     def init_protocols(self):
         """
@@ -82,6 +83,9 @@ class ClientBl:
                 self.flags["encrypted"] = True
             elif x.split(HEADER_SEPARATOR[0] == HEADERS["file_fetch"]):
                 self.last_file_received = x.split(HEADER_SEPARATOR)[1]
+            elif x.split(HEADER_SEPARATOR[0] == HEADERS["login"]):
+                self.last_login_received = x.split(HEADER_SEPARATOR)[1]
+        
 
     def console_handle(self):
         msg = ""
@@ -149,10 +153,12 @@ class ClientBl:
             return False
 
     def login(self, username, password):
-        self.comtocol.send_sym(f"")
+        self.comtocol.send_sym(f"LGIN<{username}>{password}")
+        success, x = self.comtocol.receive_sym()
+        return x
 
     def register(self, username, password):
-        self.comtocol.send_sym(f"CRET<user.{username}>{password}".encode())
+        self.comtocol.send_sym(f"CRET<user>{username}>{password}".encode())
 
     def upload_file(self, file_name, node_id):
         self.comtocol.send_sym(f"FILE<{file_name}>{node_id}".encode())

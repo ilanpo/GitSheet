@@ -276,29 +276,30 @@ class ClientGUI:
 
             with ui.group(horizontal=True):
                 ui.add_text("Username:")
-                ui.add_input_text(width=200)
+                ui.add_input_text(width=200, tag="UsernameEntry")
 
             with ui.group(horizontal=True):
                 ui.add_text("Password:")
-                ui.add_input_text(width=200, password=True)
+                ui.add_input_text(width=200, password=True, tag="PasswordEntry")
 
             with ui.group(horizontal=True):
                 ui.add_button(label="Register", callback=self.__press_register )
                 ui.add_button(label="Login", callback=self.__press_login )
 
     def __press_register(self):
-        
-        # TODO ! Send to server register request
-        # TODO ! Connect to client by .__get_connection_details( ) details
-        # ip: str, port: int = self.__get_connection_details( ) 
-        
-        self.__failed_login("Some error")
 
-        # TODO ! Disconnect
+        
+        
+
+        
 
     def __press_login(self, *args):
-        
-        # TODO ! Send to server login request
+        result = self.clientbl.login
+        print(result)
+        if result is not "FA1L3D":
+            self.__load_project_screen
+        else:
+            self.__failed_login("Login failed, wrong password or username")
 
     def __load_project_screen(self):
         try:

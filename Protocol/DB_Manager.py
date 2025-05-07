@@ -174,6 +174,16 @@ class DatabaseManager:
         selected_collection = path_collection[collection]
         selected_collection.delete_many({}, {})
 
+    def fetch_user(self, username):
+        query = {"name": username}
+
+        x = self.veins_col.find_one(query)
+        password = x.get("password")
+        user_id = x.get("_id")
+        return password, user_id
+        
+
+
     def fetch_projects(self, user_id) -> list:
         projects = []
 

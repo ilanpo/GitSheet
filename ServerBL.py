@@ -12,7 +12,7 @@ class ClientHandle:
     port: int
 
     def __init__(self, ip, port, socket_obj):
-        self.user_id = "123"  # PLACEHOLDER WHILE LOGIN DOESNT EXIST
+        self.user_id = None  # PLACEHOLDER WHILE LOGIN DOESNT EXIST
         self.comtocol = ComProtocol()
         self.comtocol.attach(ip, port, socket_obj)
         self.DB = DatabaseManager("mongodb://localhost:27017/")
@@ -52,6 +52,14 @@ class ClientHandle:
         :return:
         """
         try:
+            if message.split(HEADER_SEPARATOR)[0] == HEADERS["login"]:
+                username = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
+                password = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
+                success = self.login(username, password)
+                if success:
+                    self.comtocol.send_sym("login successful")
+                else:
+                    self.comtocol.send_sym(FAILURE_MESSAGE)
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["create"]:
                 data_type = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
                 if data_type == "user":
@@ -204,6 +212,14 @@ class ClientHandle:
         x = self.DB.fetch_files(user_id, node_id)
         print(x)
         return x
+    
+    def login(self, username, password):
+        found_password, user_id = self.DB.fetch_user(username)
+        if password == found_password:
+            self.user_id = user_id
+            return True
+        return False
+
 
     def delete_entry(self, entry_id, collection):
         x = self.DB.remove_entry(entry_id, collection)
