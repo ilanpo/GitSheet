@@ -67,7 +67,15 @@ class ClientHandle:
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["update"]:
                 x = FAILURE_MESSAGE
                 message_start = message.split(PARAMETER_SEPARATOR)[0]
-                fetch_type = message_start.split(HEADER_SEPARATOR)[1]
+                item_id = message_start.split(HEADER_SEPARATOR)[1]
+                collection = message.split(PARAMETER_SEPARATOR)[1]
+                change_type = message.split(PARAMETER_SEPARATOR)[2]
+                change = message.split(PARAMETER_SEPARATOR)[3]
+                success = self.update_entry(item_id, collection, "replace", change, change_type)
+                if success:
+                    x = f"Successfully updated entry {item_id} in collection {collection} with {change} in field {change_type}"
+                self.comtocol.send_sym(x)
+
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 path_collection = {
                     "projects": self.find_projects,

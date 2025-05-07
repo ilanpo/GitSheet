@@ -200,10 +200,11 @@ class NodeEditor:
 
     def return_positions(self):
         positions = {}
-        for item in self._nodes:
-            print(item)
-            pos = ui.get_item_pos(item)
-            positions[item] = pos
+        for item in self._tags:
+            if self._tags[item] in self._nodes:
+                print(item)
+                pos = ui.get_item_pos(item)
+                positions[self._tags[item]] = pos
         return positions
 
     def clear_editor(self):
@@ -430,6 +431,8 @@ class ClientGUI:
     def __callback_save_position(self):
         positions = self._node_editor.return_positions()
         print(positions)
+        for item in positions:
+            self.clientbl.update_position("nodes", item, positions[item])
 
 
     def __create_node_editor(self):

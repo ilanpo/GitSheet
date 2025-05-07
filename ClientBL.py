@@ -156,6 +156,15 @@ class ClientBl:
         with open(file_name, "rb") as file:
             self.comtocol.send_raw_sym(file.read())
 
+    def update_position(self, collection: str, item_id: str, position: list) -> str:
+        position = json.dumps(position)
+        self.comtocol.send_sym(f"UPDT<{item_id}>{collection}>nodes>{position}".encode())
+        success, x = self.comtocol.receive_sym()
+        if not success:
+            return FAILURE_MESSAGE
+        else:
+            return x
+
     def disconnect(self):
         msg = DISCONNECT_MESSAGE
         self.comtocol.send_sym(msg.encode())
