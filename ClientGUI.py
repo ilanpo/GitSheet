@@ -299,6 +299,8 @@ class ClientGUI:
     def __press_login(self, *args):
         
         # TODO ! Send to server login request
+
+    def __load_project_screen(self):
         try:
             ip, port = self.__get_connection_details()
 

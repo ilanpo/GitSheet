@@ -52,6 +52,12 @@ class ClientHandle:
         :return:
         """
         try:
+            if message.split(HEADER_SEPARATOR)[0] == HEADERS["create"]:
+                data_type = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
+                if data_type == "user":
+                    username = message.split(PARAMETER_SEPARATOR[1])
+                    password = message.split(PARAMETER_SEPARATOR[2])
+                    self.add_entry(data_type, [username, password])
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["file_fetch"]:
                 node_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
                 file_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
@@ -210,6 +216,20 @@ class ClientHandle:
         # allowed collections are as follows: "users" "projects" "nodes" "veins" "files"
         x = self.DB.push_to_dict(entry_id, collection, operation, change, change_field)
         print(x)
+        return x
+
+    def add_entry(self, entry_type: str, info: list):
+        x = FAILURE_MESSAGE
+        if entry_type == "user":
+            x = self.DB.new_user(info[0], info[1])
+        if entry_type == "vein":
+            x = self.DB.new_vein(info[0], info[1], info[2], info[3])
+        if entry_type == "node":
+            x = self.DB.new_node(info[0], info[1], info[2], info[3])
+        if entry_type == "project":
+            x = self.DB.new_project(info[0], info[1], info[2], info[3])
+        if entry_type == "file":
+            x = self.DB.new_file(info[0], info[1], info[2], info[3])
         return x
 
 

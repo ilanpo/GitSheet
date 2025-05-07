@@ -148,6 +148,12 @@ class ClientBl:
             self.last_error = f"Exception in [ClientBL] request projects: {e}"
             return False
 
+    def login(self, username, password):
+        self.comtocol.send_sym(f"")
+
+    def register(self, username, password):
+        self.comtocol.send_sym(f"CRET<user.{username}>{password}".encode())
+
     def upload_file(self, file_name, node_id):
         self.comtocol.send_sym(f"FILE<{file_name}>{node_id}".encode())
         self.file_send(file_name)
