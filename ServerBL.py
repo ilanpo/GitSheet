@@ -12,7 +12,7 @@ class ClientHandle:
     port: int
 
     def __init__(self, ip, port, socket_obj):
-        self.user_id = None  # PLACEHOLDER WHILE LOGIN DOESNT EXIST
+        self.user_id = None
         self.comtocol = ComProtocol()
         self.comtocol.attach(ip, port, socket_obj)
         self.DB = DatabaseManager("mongodb://localhost:27017/")
@@ -68,13 +68,20 @@ class ClientHandle:
                 try:
                     if data_type == "user":
                         username = message.split(PARAMETER_SEPARATOR)[1]
-                        print(username)
                         password = message.split(PARAMETER_SEPARATOR)[2]
-                        print(password)
                         self.add_entry(data_type, [username, password])
-                    else:
-                        self.add_entry(data_type, [message.split(PARAMETER_SEPARATOR)[1], message.split(PARAMETER_SEPARATOR)[2],
-                                       message.split(PARAMETER_SEPARATOR)[3], message.split(PARAMETER_SEPARATOR)[4]])
+                    elif data_type == "node":
+                        project_id = ObjectId(message.split(PARAMETER_SEPARATOR)[1])
+                        permissions = json.loads(message.split(PARAMETER_SEPARATOR)[2])
+                        item_data = json.loads(message.split(PARAMETER_SEPARATOR)[3])
+                        settings = json.loads(message.split(PARAMETER_SEPARATOR)[4])
+                        self.add_entry(data_type, [project_id, permissions, item_data, settings])
+                    elif data_type == "vein":
+                        project_id = ObjectId(message.split(PARAMETER_SEPARATOR)[1])
+                        permissions = json.loads(message.split(PARAMETER_SEPARATOR)[2])
+                        item_data = message.split(PARAMETER_SEPARATOR)[3]
+                        settings = json.loads(message.split(PARAMETER_SEPARATOR)[4])
+                        self.add_entry(data_type, [project_id, permissions, item_data, settings])
                     self.comtocol.send_sym(f"Successfully added {data_type}".encode())
                 except Exception as e:
                     self.comtocol.send_sym(str(e).encode())
@@ -98,7 +105,8 @@ class ClientHandle:
                 change_type = message.split(PARAMETER_SEPARATOR)[2]
                 change = message.split(PARAMETER_SEPARATOR)[3]
                 print(change)
-                change = json.loads(change)
+                if change_type == "settings":
+                    change = json.loads(change)
                 print(change)
                 print(type(change))
                 success = self.update_entry(ObjectId(item_id), collection, "replace", change, change_type)

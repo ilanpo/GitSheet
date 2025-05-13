@@ -24,7 +24,8 @@ HEADERS = {
     "file_fetch": "FLFT",
     "update": "UPDT",
     "create": "CRET",
-    "login": "LGIN"
+    "login": "LGIN",
+    "delete": "DELT"
 }
 logging.basicConfig(filename=LOG_FILE_PATH, level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

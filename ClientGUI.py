@@ -8,12 +8,14 @@ VIEWPORT_HEIGHT: int = 1000
 
 class Node:
     
-    _parent:    int # Parent DearPyGui ID
-    _tag:       str # Custom tag
-    _id:        int # DearPyGui ID
-    _title:     str # Help me
-    _info:      str # Wow
+    _parent:    int  # Parent DearPyGui ID
+    _tag:       str  # Custom tag
+    _id:        int  # DearPyGui ID
+    _title:     str
+    _info:      str
     _callback:  any
+    _callback_download_file: any
+    _callback_open_file: any
 
     _input_id:  int
     _output_id: int
@@ -41,6 +43,8 @@ class Node:
         with ui.node_attribute(parent=self._id):
             #ui.add_button(label=f"Press to add another Node", callback=self.__callback_wrap)
             ui.add_text( self._info )
+            #ui.add_button(label="Download File", callback=self.__callback_download_file)
+            #ui.add_button(label="Open File", callback=self.__callback_open_file)
         
     def __callback_wrap(self, *args):
         
@@ -48,6 +52,18 @@ class Node:
             return
         
         self._callback()
+
+    def __callback_download_file(self, *args):
+        if self._callback_download_file is None:
+            return
+
+        self._callback_download_file(self._tag)
+
+    def __callback_open_file(self, *args):
+        if self.__callback_open_file is None:
+            return
+
+        self.__callback_open_file(self._tag)
 
     def get_id(self):
         return self._id
@@ -64,8 +80,19 @@ class Node:
     def get_output(self):
         return self._output_id
     
-    def attach_callback(self, new_callback):
-        self._callback = new_callback
+    def attach_callback(self, new_callback, callback_type: int = 1):
+
+        if callback_type == 1:
+            self._callback = new_callback
+            return
+
+        if callback_type == 2:
+            self._callback_download_file = new_callback
+            return
+
+        if callback_type == 3:
+            self._callback_open_file = new_callback
+            return
 
 
 class Vein:
@@ -202,10 +229,17 @@ class NodeEditor:
         positions = {}
         for item in self._tags:
             if self._tags[item] in self._nodes:
-                print(item)
                 pos = ui.get_item_pos(item)
                 positions[self._tags[item]] = pos
         return positions
+
+    def get_nodes(self):
+        nodes = {}
+        for item in self._tags:
+            if self._tags[item] in self._nodes:
+                name = self._nodes[self._tags[item]].get_name()
+                nodes[name] = self._tags[item]
+        return nodes
 
     def clear_editor(self):
         ui.delete_item(self._id, children_only=True)
@@ -286,13 +320,17 @@ class ClientGUI:
                 ui.add_button(label="Register", callback=self.__press_register )
                 ui.add_button(label="Login", callback=self.__press_login )
 
+            ui.add_text(default_value="Welcome to GitSheet!", tag="ErrorLogin")
+
     def __press_register(self):
         try:
             ip, port = self.__get_connection_details()
             self.start_client(ip, port)
-            result = self.clientbl.register(ui.get_value("UsernameEntry"), ui.get_value("PasswordEntry"))
+            username = ui.get_value("UsernameEntry")
+            result = self.clientbl.register(username, ui.get_value("PasswordEntry"))
             print(f"{result}")
             self.stop_client()
+            self.__failed_login(f"Successfully registered user {username}")
         except Exception as e:
             self.__failed_login(f"Encountered error on login: {e}")
 
@@ -302,7 +340,7 @@ class ClientGUI:
             self.start_client(ip, port)
             result = self.clientbl.login(ui.get_value("UsernameEntry"), ui.get_value("PasswordEntry"))
             print(result)
-            if result is not "FA1L3D":
+            if result != "FA1L3D":
                 self.__load_project_screen()
             else:
                 self.__failed_login("Login failed, wrong password or username")
@@ -369,11 +407,17 @@ class ClientGUI:
 
     def __add_vein_window(self, start_name, end_name):
         with ui.window(label="Vein Info", pos=[200, 200]):
-            ui.add_text(f"Linked {start_name} - {end_name}")
+            ui.add_input_text(multiline=True, default_value=f"Linked {start_name} - {end_name}", tag="VeinValue")
+            ui.add_button(label="Save changes", callback=self.__callback_save_vein)
+
+    def __callback_save_vein(self, *args):
+        value = ui.get_value("VeinValue")
+        print(value)
+
+        # TODO: Send this value
         
     def __failed_login( self, reason):
-        with ui.window(label="Error", pos=[200, 200]):
-            ui.add_text(f"{reason}!")
+        ui.configure_item("ErrorLogin", default_value=f"{reason}!")
         print(f"{reason}!")
 
     def __get_connection_details(self) -> tuple:
@@ -416,19 +460,11 @@ class ClientGUI:
 
         menu_bar_id = ui.add_menu_bar(parent=self._window)
 
-        with ui.menu(parent=menu_bar_id, label="File"):
-            ui.add_menu_item(label="Test1")
-            ui.add_menu_item(label="Test2")
-            ui.add_menu_item(label="Test3")
-            ui.add_separator()
-            ui.add_menu_item(label="Save new position", callback=self.__callback_save_position)
-
-        with ui.menu(parent=menu_bar_id, label="Help"):
-            ui.add_menu_item(label="IDK")
-            ui.add_menu_item(label="ITEM")
-
-        with ui.menu(parent=menu_bar_id, label="View"):
+        with ui.menu(parent=menu_bar_id, label="Project"):
             ui.add_menu_item(label="Refresh", callback=self.__callback_refresh_button)
+            ui.add_menu_item(label="Add Node", callback=self.__callback_add_node)
+            ui.add_menu_item(label="Add Vein", callback=self.__callback_add_vein)
+            ui.add_menu_item(label="Save new position", callback=self.__callback_save_position)
 
     def __callback_refresh_button(self):
         self._node_editor.clear_editor()
@@ -444,6 +480,49 @@ class ClientGUI:
             self.clientbl.update_position("nodes", item, settings)
 
 
+
+    def __callback_add_node(self):
+        try:
+            with ui.window(label="Add Node", pos=[200, 200]):
+                ui.add_input_text(default_value=f"Node name", tag="NodeData")
+                ui.add_button(label="Create Node", callback=self.add_node)
+        except Exception as e:
+            self.error_popup(f"Encountered error on node create: {e}")
+
+    def add_node(self):
+        self.clientbl.create_node(str(self.project_id), [self.userid],
+                                  [ui.get_value("NodeData")], {"x": 0, "y": 0})
+        self.__callback_refresh_button()
+
+    def __callback_add_vein(self):
+        try:
+            nodes = self._node_editor.get_nodes()
+            node_names = []
+            for node in nodes:
+                node_names.append(node)
+
+            with ui.window(label="Add Vein", pos=[200, 200]):
+                with ui.group():
+                    ui.add_input_text(default_value=f"Description displayed in vein", tag="VeinData")
+                    ui.add_text("Origin:")
+                    ui.add_listbox(items=node_names, width=200, tag="VeinStartNode")
+                    ui.add_text("Destination:")
+                    ui.add_listbox(items=node_names, width=200, tag="VeinEndNode")
+                    ui.add_button(label="Create Vein", callback=self.add_vein)
+        except Exception as e:
+            self.error_popup(f"Encountered error on vein create: {e}")
+
+
+    def add_vein(self):
+        nodes = self._node_editor.get_nodes()
+        self.clientbl.create_vein(str(self.project_id), [self.userid],
+                                      ui.get_value("VeinData"), {"origin": nodes[ui.get_value("VeinStartNode")],
+                                      "destination": nodes[ui.get_value("VeinEndNode")]})
+        self.__callback_refresh_button()
+
+    def error_popup(self, error):
+        with ui.window(label="Error", pos=[200, 200]):
+            ui.add_text(f"{error}")
     def __create_node_editor(self):
         self._node_editor = NodeEditor(self._window)
 
@@ -469,26 +548,40 @@ class ClientGUI:
         for item in nodes:
             item: dict = item
 
-            self._node_editor.add_node(item['_id'], item['node_data'][0], [item['settings']["x"],item['settings']["y"]], "Info")
+            current_node = self._node_editor.add_node(item['_id'], item['node_data'][0],
+                                                      [item['settings']["x"], item['settings']["y"]], "Info")
+            current_node.attach_callback(self.__download_file, 2)
+            current_node.attach_callback(self.__open_file, 3)
+
+    def __download_file(self, node_tag):
+        print(f"Need to download file from node {node_tag}")
+
+        # TODO ! Download file based on node tag
+
+    def __open_file(self, node_tag):
+        print(f"Need to open from node {node_tag}")
+
+        # TODO ! Perform open file based on node tag
+
 
     def load_veins(self):
-        veins: any = self.clientbl.request_data("veins", self.project_id)
+            veins: any = self.clientbl.request_data("veins", self.project_id)
 
-        if type(veins) == str:
-            return print("type(veins) == str")
+            if type(veins) == str:
+                return print("type(veins) == str")
 
-        for item in veins:
-            item: dict = item
+            for item in veins:
+                item: dict = item
 
-            settings: dict = item["settings"]
+                settings: dict = item["settings"]
 
-            start_node: Node = self._node_editor.find_node(settings["origin"])
-            end_node: Node = self._node_editor.find_node(settings["destination"])
+                start_node: Node = self._node_editor.find_node(settings["origin"])
+                end_node: Node = self._node_editor.find_node(settings["destination"])
 
-            if start_node is None or end_node is None:
-                print(f"INVALID IDS : {settings}")
-                continue
+                if start_node is None or end_node is None:
+                    print(f"INVALID IDS : {settings}")
+                    continue
 
-            vein = self._node_editor.add_vein(item["_id"], start_node, end_node)
-            vein.attach_callback(self.__add_vein_window)
+                vein = self._node_editor.add_vein(item["_id"], start_node, end_node)
+                vein.attach_callback(self.__add_vein_window)
 

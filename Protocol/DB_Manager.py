@@ -143,7 +143,6 @@ class DatabaseManager:
             "files": self.files_col,
             "users": self.users_col
         }
-
         selected_collection = path_collection[collection]
         query = {"_id": entry_id}
         result = selected_collection.delete_one(query)
@@ -184,8 +183,6 @@ class DatabaseManager:
             return True, password, user_id
         else:
             return False, None, None
-        
-
 
     def fetch_projects(self, user_id) -> list:
         projects = []
@@ -319,11 +316,12 @@ if __name__ == "__main__":
     DB.new_project("Git33", "1234", {"hi": "hello"}, ["123", "1234"])
     bool, proj_id = DB.fetch_id("Git33", "projects")
     #print(proj_id)
-    node_idd, Success1 = DB.new_node(proj_id, ["123"], ["Important info334"], {"hi": "bye", "x": 160, "y": 170})
-    node_idd2, Success4 = DB.new_node(proj_id, ["123"], ["Important info DEST334"], {"hi": "bye", "x": 200, "y": 200})
+    node_idd, Success1 = DB.new_node(proj_id, ["123"], ["Important info334"], {"x": 160, "y": 170})
+    node_idd2, Success4 = DB.new_node(proj_id, ["123"], ["Important info DEST334"], {"x": 200, "y": 200})
     vein_idd, Success3 = DB.new_vein(proj_id, ["123"], "Important info3332", {"origin": str(node_idd), "destination": str(node_idd2)})
     #print(DB.fetch_projects("123"))
-    #print(DB.fetch_veins_and_nodes("123", proj_id))
+    #bool, proj_id = DB.fetch_id("Git33", "projects")
+    print(DB.fetch_veins_and_nodes("123", proj_id))
     #file_idd, Success2 = DB.new_file(node_idd, ["123"], b"1001", {"default": "settings"})
     #print(Success)
     #DB.push_to_dict(proj_id, "projects", "add", "4321", "permission")

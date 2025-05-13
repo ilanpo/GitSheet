@@ -174,8 +174,45 @@ class ClientBl:
 
     def update_position(self, collection: str, item_id: str, settings: dict) -> str:
         settings = json.dumps(settings)
-        print(settings)
         self.comtocol.send_sym(f"UPDT<{item_id}>{collection}>settings>{settings}".encode())
+        success, x = self.comtocol.receive_sym()
+        x = x.decode()
+        if not success:
+            return FAILURE_MESSAGE
+        else:
+            return x
+
+    def update_vein_text(self, collection: str, item_id: str, vein_data: str):
+        self.comtocol.send_sym(f"UPDT<{item_id}>{collection}>vein_data>{vein_data}".encode())
+        success, x = self.comtocol.receive_sym()
+        x = x.decode()
+        if not success:
+            return FAILURE_MESSAGE
+        else:
+            return x
+
+    def delete_node(self):
+        pass
+
+    def delete_vein(self):
+        pass
+
+    def create_node(self, project_id: str, permissions: list, item_data: list, settings: dict):
+        permissions = json.dumps(permissions)
+        item_data = json.dumps(item_data)
+        settings = json.dumps(settings)
+        self.comtocol.send_sym(f"CRET<node>{project_id}>{permissions}>{item_data}>{settings}".encode())
+        success, x = self.comtocol.receive_sym()
+        x = x.decode()
+        if not success:
+            return FAILURE_MESSAGE
+        else:
+            return x
+
+    def create_vein(self, project_id: str, permissions: list, item_data: str, settings: dict):
+        permissions = json.dumps(permissions)
+        settings = json.dumps(settings)
+        self.comtocol.send_sym(f"CRET<vein>{project_id}>{permissions}>{item_data}>{settings}".encode())
         success, x = self.comtocol.receive_sym()
         x = x.decode()
         if not success:
