@@ -191,11 +191,21 @@ class ClientBl:
         else:
             return x
 
-    def delete_node(self):
-        pass
+    def delete_node(self, item_id, project_id):
+        self.comtocol.send_sym(f"DELT<nodes>{item_id}>{project_id}".encode())
+        success, x = self.comtocol.receive_sym()
+        if not success:
+            return FAILURE_MESSAGE
+        else:
+            return x
 
-    def delete_vein(self):
-        pass
+    def delete_vein(self, item_id, project_id):
+        self.comtocol.send_sym(f"DELT<veins>{item_id}>{project_id}".encode())
+        success, x = self.comtocol.receive_sym()
+        if not success:
+            return FAILURE_MESSAGE
+        else:
+            return x
 
     def create_node(self, project_id: str, permissions: list, item_data: list, settings: dict):
         permissions = json.dumps(permissions)

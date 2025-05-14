@@ -52,6 +52,18 @@ class ClientHandle:
         :return:
         """
         try:
+            if message.split(HEADER_SEPARATOR)[0] == HEADERS["delete"]:
+                try:
+                    collection = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
+                    item_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
+                    item_id = ObjectId(item_id)
+                    parent_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[2]
+                    parent_id = ObjectId(parent_id)
+                    self.delete_entry(item_id, collection, parent_id)
+                    self.comtocol.send_sym("delete successful".encode())
+                except Exception as e:
+                    self.comtocol.send_sym(FAILURE_MESSAGE.encode())
+
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["login"]:
                 username = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
                 print(username)
@@ -242,10 +254,14 @@ class ClientHandle:
                 return True
         return False
 
+    def delete_entry(self, entry_id, collection, parent_id):
+        x = self.DB.remove_entry(entry_id, collection, parent_id)
+        # allowed collections are as follows: "nodes" "veins" "files"
+        print(x)
+        return x
 
-    def delete_entry(self, entry_id, collection):
-        x = self.DB.remove_entry(entry_id, collection)
-        # allowed collections are as follows: "users" "projects" "nodes" "veins" "files"
+    def delete_user(self, entry_id):
+        x = self.DB.remove_user(entry_id)
         print(x)
         return x
 

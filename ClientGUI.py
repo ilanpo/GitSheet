@@ -16,6 +16,7 @@ class Node:
     _callback:  any
     _callback_download_file: any
     _callback_open_file: any
+    _callback_delete_node: any
 
     _input_id:  int
     _output_id: int
@@ -43,8 +44,10 @@ class Node:
         with ui.node_attribute(parent=self._id):
             #ui.add_button(label=f"Press to add another Node", callback=self.__callback_wrap)
             ui.add_text( self._info )
-            #ui.add_button(label="Download File", callback=self.__callback_download_file)
-            #ui.add_button(label="Open File", callback=self.__callback_open_file)
+            ui.add_button(label="Download File", callback=self.__callback_download_file)
+            ui.add_button(label="Open File", callback=self.__callback_open_file)
+            ui.add_button(label="Delete File", callback=self.__callback_delete_node) # TODO
+            ui.add_button(label="Delete Node", callback=self.__callback_delete_node)
         
     def __callback_wrap(self, *args):
         
@@ -52,6 +55,13 @@ class Node:
             return
         
         self._callback()
+
+    def __callback_delete_node(self):
+
+        if self._callback_delete_node is None:
+            return
+
+        self._callback_delete_node(self._tag)
 
     def __callback_download_file(self, *args):
         if self._callback_download_file is None:
@@ -92,6 +102,10 @@ class Node:
 
         if callback_type == 3:
             self._callback_open_file = new_callback
+            return
+
+        if callback_type == 4:
+            self._callback_delete_node = new_callback
             return
 
 
@@ -478,12 +492,13 @@ class ClientGUI:
         for item in positions:
             settings = {"x": positions[item][0], "y": positions[item][1]}
             self.clientbl.update_position("nodes", item, settings)
-
-
+        self.__callback_refresh_button()
 
     def __callback_add_node(self):
+        if ui.does_item_exist("NodeWindow"):
+            ui.delete_item("NodeWindow")
         try:
-            with ui.window(label="Add Node", pos=[200, 200]):
+            with ui.window(label="Add Node", pos=[200, 200], tag="NodeWindow"):
                 ui.add_input_text(default_value=f"Node name", tag="NodeData")
                 ui.add_button(label="Create Node", callback=self.add_node)
         except Exception as e:
@@ -495,13 +510,15 @@ class ClientGUI:
         self.__callback_refresh_button()
 
     def __callback_add_vein(self):
+        if ui.does_item_exist("VeinWindow"):
+            ui.delete_item("VeinWindow")
         try:
             nodes = self._node_editor.get_nodes()
             node_names = []
             for node in nodes:
                 node_names.append(node)
 
-            with ui.window(label="Add Vein", pos=[200, 200]):
+            with ui.window(label="Add Vein", pos=[200, 200], tag="VeinWindow"):
                 with ui.group():
                     ui.add_input_text(default_value=f"Description displayed in vein", tag="VeinData")
                     ui.add_text("Origin:")
@@ -511,7 +528,6 @@ class ClientGUI:
                     ui.add_button(label="Create Vein", callback=self.add_vein)
         except Exception as e:
             self.error_popup(f"Encountered error on vein create: {e}")
-
 
     def add_vein(self):
         nodes = self._node_editor.get_nodes()
@@ -523,6 +539,7 @@ class ClientGUI:
     def error_popup(self, error):
         with ui.window(label="Error", pos=[200, 200]):
             ui.add_text(f"{error}")
+
     def __create_node_editor(self):
         self._node_editor = NodeEditor(self._window)
 
@@ -552,6 +569,7 @@ class ClientGUI:
                                                       [item['settings']["x"], item['settings']["y"]], "Info")
             current_node.attach_callback(self.__download_file, 2)
             current_node.attach_callback(self.__open_file, 3)
+            current_node.attach_callback(self.__delete_node, 4)
 
     def __download_file(self, node_tag):
         print(f"Need to download file from node {node_tag}")
@@ -563,6 +581,11 @@ class ClientGUI:
 
         # TODO ! Perform open file based on node tag
 
+    def __delete_node(self, node_id):
+        print("got to delete")
+        self.clientbl.delete_node(node_id, self.project_id)
+        print("deleted node")
+        self.__callback_refresh_button()
 
     def load_veins(self):
             veins: any = self.clientbl.request_data("veins", self.project_id)

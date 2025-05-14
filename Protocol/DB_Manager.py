@@ -135,9 +135,18 @@ class DatabaseManager:
         success = self.push_to_dict(node_id, "nodes", "add", file_id, "files")
         return file_id, success
 
-    def remove_entry(self, entry_id, collection):
+    def remove_project(self, entry_id):
+        query = {"_id": entry_id}
+        project = self.projects_col.find_one(query)
+        nodes = project["nodes"]
+        if nodes:
+            for node in nodes:
+                self.remove_entry(node["_id"], "nodes", project["_id"])
+        result = self.projects_col.delete_one(query)
+        return result
+
+    def remove_entry(self, entry_id, collection, collection_id):
         path_collection = {
-            "projects": self.projects_col,
             "nodes": self.nodes_col,
             "veins": self.veins_col,
             "files": self.files_col,
@@ -145,7 +154,35 @@ class DatabaseManager:
         }
         selected_collection = path_collection[collection]
         query = {"_id": entry_id}
+        if collection == "nodes":
+            node = selected_collection.find_one(query)
+            project = self.projects_col.find_one({"_id": collection_id})
+            if project:
+                for vein_id in project["veins"]:
+                    vein = self.veins_col.find_one({"_id": vein_id})
+                    if vein["settings"]["origin"] == str(node["_id"]) or vein["settings"]["destination"] == str(node["_id"]):
+                        self.remove_entry(vein_id, "veins", collection_id)
+                self.push_to_dict(project["_id"], "projects", "discard", node["_id"], "nodes")
+        if collection == "veins":
+            target_vein = selected_collection.find_one(query)
+            project = self.projects_col.find_one({"_id": collection_id})
+            if project:
+                for vein in project["veins"]:
+                    if vein == target_vein["_id"]:
+                        self.push_to_dict(project["_id"], "projects", "discard", vein, "veins")
+        if collection == "files":
+            target_file = selected_collection.find_one(query)
+            node = self.nodes_col.find_one({"_id": collection_id})
+            if node:
+                for file in node["files"]:
+                    if file == target_file["_id"]:
+                        self.push_to_dict(node["_id"], "nodes", "discard", file, "files")
         result = selected_collection.delete_one(query)
+        return result
+
+    def remove_user(self, user_id):
+        query = {"_id": user_id}
+        result = self.users_col.delete_one(query)
         return result
 
     def print_all_in_collection(self, collection: str):
@@ -319,13 +356,17 @@ if __name__ == "__main__":
     node_idd, Success1 = DB.new_node(proj_id, ["123"], ["Important info334"], {"x": 160, "y": 170})
     node_idd2, Success4 = DB.new_node(proj_id, ["123"], ["Important info DEST334"], {"x": 200, "y": 200})
     vein_idd, Success3 = DB.new_vein(proj_id, ["123"], "Important info3332", {"origin": str(node_idd), "destination": str(node_idd2)})
+    #DB.remove_entry(node_idd2, "nodes", proj_id)
     #print(DB.fetch_projects("123"))
+    bool, proj_id = DB.fetch_id("Git33", "projects")
     #bool, proj_id = DB.fetch_id("Git33", "projects")
-    print(DB.fetch_veins_and_nodes("123", proj_id))
+    #print(DB.fetch_veins_and_nodes("123", proj_id))
     #file_idd, Success2 = DB.new_file(node_idd, ["123"], b"1001", {"default": "settings"})
     #print(Success)
     #DB.push_to_dict(proj_id, "projects", "add", "4321", "permission")
     DB.print_all_in_collection("nodes")
+    DB.print_all_in_collection("veins")
+    DB.print_all_in_collection("projects")
     #DB.print_all_in_collection("files")
     #print(DB.fetch_files("123", ObjectId("67e2b91e9a082c22cae2e99c")))
     #print(DB.remove_entry(proj_id, "projects"))
