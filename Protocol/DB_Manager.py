@@ -1,11 +1,16 @@
+
 import bson
+import os
 from bson import ObjectId
 import pymongo
 from bson.binary import Binary
+from argon2 import PasswordHasher as argon2_password_hasher
 NAME_TAKEN_MESSAGE = "Failed to add document, Name already taken"
+SIZE_SALT: int = 16
 
 
 class DatabaseManager:
+
     def __init__(self, server_address):
         self.client = pymongo.MongoClient(server_address)
         file_name = "test.MOV"
@@ -15,32 +20,34 @@ class DatabaseManager:
         self.veins_col = self.db["Veins"]
         self.nodes_col = self.db["Nodes"]
         self.files_col = self.db["Files"]
-
-        """print(self.db.list_collection_names())
-        with open(file_name, "rb") as file:
-            encoded = Binary(file.read())
-        self.users_col.insert_one({"filename": file_name, "file": encoded, "description": "test" })
-
-        y = 0
-        for x in self.users_col.find({},{"_id": 0,"file": 1}):
-            with open(f"file_name{y}.MOV", "wb") as file:
-                file.write(x["file"])
-                y += 1"""
-
-    def create_collections(self):
-        pass
+        self.password_hasher = argon2_password_hasher(time_cost=3, memory_cost=65536, parallelism=4)
 
     def new_user(self, user_name: str, password: str):
+        """
+        creates new entry in user collection stores hashed password in db
+        :param user_name: username
+        :param password: password
+        :return:
+        """
         query = {"name": user_name}
         item = None
         for x in self.users_col.find(query, {"_id": 1}):
             item = x
         if item is not None:
             return False, NAME_TAKEN_MESSAGE
+        password = self.preform_hashing(password)
         ins_info = self.users_col.insert_one({"name": user_name, "password": password})
         return True, ins_info.inserted_id
 
     def new_project(self, name: str, owner_id: str, settings: dict, permission: list):
+        """
+        creates new entry in project collection
+        :param name: name of project
+        :param owner_id: username of owner
+        :param settings: dict with settings
+        :param permission: list with usernames of permitted users
+        :return:
+        """
         query = {"name": name}
         item = None
         for x in self.projects_col.find(query, {"_id": 1}):
@@ -53,6 +60,12 @@ class DatabaseManager:
         return True, ins_info.inserted_id
 
     def fetch_id(self, item_name: str, item_collection: str):
+        """
+        generic fetch fot id of item in collection
+        :param item_name: name of item
+        :param item_collection: collection, could be "projects" "nodes" "veins" "files" "users"
+        :return:
+        """
         query = {"name": item_name}
         item = None
         try:
@@ -76,6 +89,15 @@ class DatabaseManager:
             return False, "Failed to fetch id, No such item"
 
     def push_to_dict(self, dict_id: bson.objectid.ObjectId, collection: str, operation: str, change, change_type: str):
+        """
+        generic push for changes to a dictionary
+        :param dict_id: id of dictionary
+        :param collection: collection, could be "projects" "nodes" "veins" "files"
+        :param operation: operation, could be "add" "replace" "discard"
+        :param change: the change
+        :param change_type: field in the dict that is changed
+        :return:bool for success
+        """
         query = {"_id": dict_id}
         items = None
         found_data = None
@@ -117,6 +139,14 @@ class DatabaseManager:
         return x.acknowledged
 
     def new_node(self, project_id, permission: list, node_data: list, settings: dict):
+        """
+        creates new node
+        :param project_id: id of project
+        :param permission: list of permitted users
+        :param node_data: description for node
+        :param settings: settings dict {"x": int, "y": int}
+        :return: id of new node and bool for success
+        """
         ins_info = self.nodes_col.insert_one({"permission": permission, "node_data": node_data, "settings": settings,
                                               "files": []})
         node_id = ins_info.inserted_id
@@ -124,18 +154,39 @@ class DatabaseManager:
         return node_id, success
 
     def new_vein(self, project_id, permission: list, vein_data: str, settings: dict):
+        """
+        creates new vein
+        :param project_id: id of project
+        :param permission: list of permitted users
+        :param vein_data: description for vein
+        :param settings: settings dict {"origin": node id, "destination": node id}
+        :return: id of new vein and bool for success
+        """
         ins_info = self.veins_col.insert_one({"permission": permission, "vein_data": vein_data, "settings": settings})
         vein_id = ins_info.inserted_id
         success = self.push_to_dict(project_id, "projects", "add", vein_id, "veins")
         return vein_id, success
 
     def new_file(self, node_id, permission: list, file: bytes, settings: dict):
+        """
+        creates new file
+        :param node_id: id of node
+        :param permission: list of permitted users
+        :param file: contained file in bytes
+        :param settings: settings dict {"name": str}
+        :return: id of new file and bool for success
+        """
         ins_info = self.files_col.insert_one({"permission": permission, "file": file, "settings": settings})
         file_id = ins_info.inserted_id
         success = self.push_to_dict(node_id, "nodes", "add", file_id, "files")
         return file_id, success
 
     def remove_project(self, entry_id):
+        """
+        removes a project from the DB
+        :param entry_id: project db id
+        :return: result of the attempt
+        """
         query = {"_id": entry_id}
         project = self.projects_col.find_one(query)
         nodes = project["nodes"]
@@ -146,6 +197,13 @@ class DatabaseManager:
         return result
 
     def remove_entry(self, entry_id, collection, collection_id):
+        """
+        removes an entry in a collection
+        :param entry_id: id of the entry
+        :param collection: the collection, could be "projects" "nodes" "veins" "files"
+        :param collection_id: the id of parent collection, either project or node
+        :return:result of attempt
+        """
         path_collection = {
             "nodes": self.nodes_col,
             "veins": self.veins_col,
@@ -181,11 +239,21 @@ class DatabaseManager:
         return result
 
     def remove_user(self, user_id):
+        """
+        removes a user from db
+        :param user_id: id of user
+        :return: result of attempt
+        """
         query = {"_id": user_id}
         result = self.users_col.delete_one(query)
         return result
 
     def print_all_in_collection(self, collection: str):
+        """
+        prints whole collection
+        :param collection: collection, could be "projects" "nodes" "veins" "files"
+        :return:
+        """
         path_collection = {
             "projects": self.projects_col,
             "nodes": self.nodes_col,
@@ -199,6 +267,11 @@ class DatabaseManager:
             print(x)
 
     def clear_all_in_collection(self, collection: str):
+        """
+        clears entire collection
+        :param collection: collection, could be "projects" "nodes" "veins" "files"
+        :return:
+        """
         path_collection = {
             "projects": self.projects_col,
             "nodes": self.nodes_col,
@@ -211,6 +284,11 @@ class DatabaseManager:
         selected_collection.delete_many({}, {})
 
     def fetch_user(self, username):
+        """
+        fetches a user by username
+        :param username: username
+        :return:bool for success and hashed password of user and users id
+        """
         query = {"name": username}
 
         x = self.users_col.find_one(query)
@@ -222,6 +300,11 @@ class DatabaseManager:
             return False, None, None
 
     def fetch_projects(self, user_id) -> list:
+        """
+        fetches all project user can access
+        :param user_id: id of user
+        :return: list of projects
+        """
         projects = []
 
         for x in self.projects_col.find({}, {}):
@@ -236,6 +319,12 @@ class DatabaseManager:
         return projects
 
     def fetch_veins_and_nodes(self, user_id, project_id):
+        """
+        list of node and veins user can access
+        :param user_id: id of user
+        :param project_id: id of project veins and nodes belong to
+        :return: list of veins and list of nodes
+        """
         query = {"_id": project_id}
 
         veins_id = []
@@ -301,6 +390,12 @@ class DatabaseManager:
         return veins, nodes
 
     def fetch_files(self, user_id, node_id):
+        """
+        list of files user can access
+        :param user_id: id of user
+        :param node_id: id of node file belongs to
+        :return: list of files
+        """
         query = {"_id": node_id}
         files_id = []
         files = []
@@ -339,17 +434,51 @@ class DatabaseManager:
 
         return files
 
+    def preform_hashing(self, value: any) -> str:
+        """
+        hashes a value using random salt
+        :param value: value in either bytes or string to be hashed
+        :return: hashed value
+        """
+
+        if type(value) == str:
+            value: bytes = value.encode()
+
+        salt: bytes = os.urandom(SIZE_SALT)
+        hash: str = self.password_hasher.hash(value, salt=salt)
+
+        return hash
+
+    def verify_hash(self, value: any, hashed_value: str):
+        """
+        checks if value matches hash
+        :param value: value
+        :param hashed_value: hashed value
+        :return: bool if matches
+        """
+
+        if type(value) == str:
+            value: bytes = value.encode()
+
+        try:
+            return self.password_hasher.verify(hashed_value, value)
+
+        except Exception as e:
+            return False
+
 
 if __name__ == "__main__":
     pass
 
     DB = DatabaseManager("mongodb://localhost:27017/")
+    DB.clear_all_in_collection("users")
     DB.clear_all_in_collection("projects")
     DB.clear_all_in_collection("nodes")
     DB.clear_all_in_collection("files")
     DB.clear_all_in_collection("veins")
     #bool, proj_id = DB.fetch_id("GitSheet", "projects")
     #print(DB.fetch_veins_and_nodes("123", proj_id))
+    DB.new_user("123", "123")
     DB.new_project("Git33", "1234", {"hi": "hello"}, ["123", "1234"])
     bool, proj_id = DB.fetch_id("Git33", "projects")
     #print(proj_id)
@@ -361,12 +490,13 @@ if __name__ == "__main__":
     bool, proj_id = DB.fetch_id("Git33", "projects")
     #bool, proj_id = DB.fetch_id("Git33", "projects")
     #print(DB.fetch_veins_and_nodes("123", proj_id))
-    #file_idd, Success2 = DB.new_file(node_idd, ["123"], b"1001", {"default": "settings"})
+    file_idd, Success2 = DB.new_file(node_idd, ["123"], b"1001", {"name": "settings"})
     #print(Success)
     #DB.push_to_dict(proj_id, "projects", "add", "4321", "permission")
+    DB.print_all_in_collection("users")
     DB.print_all_in_collection("nodes")
     DB.print_all_in_collection("veins")
     DB.print_all_in_collection("projects")
-    #DB.print_all_in_collection("files")
+    DB.print_all_in_collection("files")
     #print(DB.fetch_files("123", ObjectId("67e2b91e9a082c22cae2e99c")))
     #print(DB.remove_entry(proj_id, "projects"))

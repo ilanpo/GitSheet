@@ -22,7 +22,7 @@ class ClientHandle:
     def handle_client(self):
         """
         Sends public key, receives symmetric key from client and receives all messages from client
-        :return: none
+        :return:
         """
         try:
             self.comtocol.send_public_key()
@@ -47,8 +47,9 @@ class ClientHandle:
 
     def handle_message(self, message):
         """
-
-        :param message:
+        processes the message depending on what header it has
+        TODO break this up into more functions and check for user id more often
+        :param message: received message that need to be processed
         :return:
         """
         try:
@@ -175,6 +176,13 @@ class ClientHandle:
             self.last_error = f"Exception in [ClientHandle] handle message: {e}"
 
     def serialize(self, document_info: dict, fetch_type: str):
+        """
+        serializes a dictionary into a form that can be sent to client over socket
+        this is needed because things are stored as lists within dicts and json doesn't like that
+        :param document_info: dict were serializing
+        :param fetch_type: type of fetch, can be "projects" "nodes" "files"
+        :return:
+        """
         try:
             document_info['_id'] = str(document_info['_id'])
 
@@ -192,7 +200,7 @@ class ClientHandle:
                 for x in document_info['files']:
                     temp_list.append(str(x))
                 document_info['files'] = temp_list
-            elif fetch_type == "files":  # temp fix that has fetch for files not include the file itself
+            elif fetch_type == "files":  # fetch data for files does not include the file itself but only info
 
                 document_info['file'] = "PLACEHOLDER"
 
@@ -205,6 +213,11 @@ class ClientHandle:
             return False, None
 
     def file_reception(self, message):
+        """
+        receives file from the client
+        :param message: info message containing file name and node id it belongs to
+        :return: bool for success
+        """
         message = message.split(HEADER_SEPARATOR)[1]
         file_name = message.split(PARAMETER_SEPARATOR)[0]
         node_id = message.split(PARAMETER_SEPARATOR)[1]
@@ -224,55 +237,107 @@ class ClientHandle:
             return False
 
     def find_projects(self, user_id) -> list:
+        """
+        finds all projects in db that user can access
+        :param user_id: id of user
+        :return: list of projects
+        """
         x = self.DB.fetch_projects(user_id)
         print(f"found projects: {x}")
         return x
 
     def find_veins(self, user_id, project_id) -> list:
+        """
+        finds all veins in db that user can access
+        :param user_id: id of user
+        :param project_id: id of project
+        :return: list of veins
+        """
         x = self.DB.fetch_veins_and_nodes(user_id, project_id)
-        print(x[0])
+        print(f"found veins: {x[0]}")
         return x[0]
 
     def find_nodes(self, user_id, project_id) -> list:
-        print(user_id)
-        print(project_id)
+        """
+        finds all nodes in db that user can access
+        :param user_id: id of user
+        :param project_id: id of project
+        :return: list of nodes
+        """
         x = self.DB.fetch_veins_and_nodes(user_id, project_id)
-        print(f"nodes are: {x[1]}")
+        print(f"found nodes: {x[1]}")
         return x[1]
 
     def find_files(self, user_id, node_id) -> list:
+        """
+        find all files user can access
+        :param user_id: id of user
+        :param node_id: id of node
+        :return: list of files
+        """
         x = self.DB.fetch_files(user_id, node_id)
-        print(x)
+        print(f"found files: {x}")
         return x
     
     def login(self, username, password):
+        """
+        compares username and password to username and hashed pass in db
+        :param username: username to compare
+        :param password: password to compare
+        :return: bool for if they match
+        """
         success, found_password, user_id = self.DB.fetch_user(username)
         if success:
-            if password == found_password:
+            if self.DB.verify_hash(password, found_password):
                 self.user_id = username
                 print(f"user_id is now {username}")
                 return True
         return False
 
     def delete_entry(self, entry_id, collection, parent_id):
+        """
+        deletes an entry in the DB
+        :param entry_id: id of entry
+        :param collection: collection it belongs to
+        :param parent_id: id of its parent
+        :return:
+        """
         x = self.DB.remove_entry(entry_id, collection, parent_id)
         # allowed collections are as follows: "nodes" "veins" "files"
         print(x)
         return x
 
     def delete_user(self, entry_id):
+        """
+        deletes a user
+        :param entry_id: id of user
+        :return: result of attempt
+        """
         x = self.DB.remove_user(entry_id)
         print(x)
         return x
 
     def update_entry(self, entry_id, collection, operation: str, change, change_field):
-        # allowed operations are: "add" "replace" "discard"
-        # allowed collections are as follows: "users" "projects" "nodes" "veins" "files"
+        """
+        updates an entry in the database
+        :param entry_id: id of the entry were updating
+        :param collection: allowed collections are as follows: "users" "projects" "nodes" "veins" "files"
+        :param operation: allowed operations are: "add" "replace" "discard"
+        :param change: the change
+        :param change_field: the field were changing
+        :return: result of attempt
+        """
         x = self.DB.push_to_dict(entry_id, collection, operation, change, change_field)
         print(x)
         return x
 
     def add_entry(self, entry_type: str, info: list):
+        """
+        adds an entry to the DB
+        :param entry_type: allowed types are as follows: "user" "project" "node" "vein" "file"
+        :param info: list with the various fields required for creating the entry
+        :return:
+        """
         x = FAILURE_MESSAGE
         if entry_type == "user":
             x = self.DB.new_user(info[0], info[1])
@@ -330,6 +395,10 @@ class ServerBL:
             return False
 
     def connection_manager(self):
+        """
+        while loop for accepting incoming connections adn starting new threads to handle them
+        :return: False if the function raises an exception
+        """
         self.flags["running"] = True
         try:
             while self.flags["running"] == True:

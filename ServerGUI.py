@@ -8,13 +8,15 @@ class ServerGUI:
     def __init__(self):
         self.server_logic = ServerBL()
 
-        # Initialize protocols
         self.server_logic.init_protocols()
 
-        self.__start_server( )
+        self.__start_server()
 
     def __start_server(self):
-        # ip_to_listen: str = input("Type IP for the server to listen : ") Just listen to all
+        """
+        starts up the server on the inputted port
+        :return:
+        """
         port: str = input("Enter Port value of the server : ")
         ip_to_listen = "0.0.0.0"
         try:
@@ -26,5 +28,8 @@ class ServerGUI:
         self.server_logic.start_server(ip_to_listen, port)
 
     def execute(self):
-        # Start listening and connecting new clients
-        self.server_logic.connection_manager( )
+        """
+        starts listening and connecting new clients
+        :return:
+        """
+        self.server_logic.connection_manager()

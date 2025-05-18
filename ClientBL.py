@@ -22,8 +22,7 @@ class ClientBl:
 
     def init_protocols(self):
         """
-        This function starts the comprotocol
-        :return: none
+        This function starts the communications protocol
         """
         self.comtocol = ComProtocol()
 
@@ -59,35 +58,11 @@ class ClientBl:
             self.last_error = f"Exception in [ClientBL] start client: {e}"
             return False
 
-    def receive_handle(self):
+    def console_handle(self):
         """
-
+        function for testing client bl using console
         :return:
         """
-        while self.flags["running"]:
-            success, x = self.comtocol.receive_sym()
-            x = x.decode()
-            if x == "Disconnecting":
-                return
-            elif x.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
-                x = x.split(HEADER_SEPARATOR)[1]
-                if x == FAILURE_MESSAGE:
-                    write_to_log("[ClientBl] receive handle received failure message from server")
-                    self.last_fetch_received = "Server failed to find requested data"
-                else:
-                    x = json.loads(x)
-                    self.last_fetch_received = x
-            elif x.split(HEADER_SEPARATOR)[0] == HEADERS["keygen"]:
-                self.comtocol.set_symmetric_key(x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0],
-                                                x.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1])
-                self.flags["encrypted"] = True
-            elif x.split(HEADER_SEPARATOR[0] == HEADERS["file_fetch"]):
-                self.last_file_received = x.split(HEADER_SEPARATOR)[1]
-            elif x.split(HEADER_SEPARATOR[0] == HEADERS["login"]):
-                self.last_login_received = x.split(HEADER_SEPARATOR)[1]
-        
-
-    def console_handle(self):
         msg = ""
         while msg != DISCONNECT_MESSAGE:
             msg = input()
@@ -100,6 +75,10 @@ class ClientBl:
         self.flags["running"] = False
 
     def request_projects(self):
+        """
+        function to request projects from server
+        :return:the found data
+        """
         try:
             self.comtocol.send_sym(f"FTCH<projects".encode())
             success, x = self.comtocol.receive_sym()
@@ -118,61 +97,103 @@ class ClientBl:
             self.last_error = f"Exception in [ClientBL] request projects: {e}"
             return None
 
-    def request_data(self, data_type: str, project_id):  # valid types are: veins nodes files (when requesting files
-                                                         # note that you're requesting the file INFO not the file itself)
-        try:                                             # also for files you need to input node_id not project id
+    def request_data(self, data_type: str, project_id):
+        """
+        requests dara such as veins nodes or files belonging to a project / node from the server
+        :param data_type: valid types are: veins nodes files (when requesting files note that you're requesting the file INFO not the file itself)
+        :param project_id: id of project also for files you need to input node_id not project id
+        :return:bool whether operation was successful and the found data
+        """
+        try:
             self.comtocol.send_sym(f"FTCH<{data_type}>{project_id}".encode())
             success, x = self.comtocol.receive_sym()
             x = x.decode()
             x = x.split(HEADER_SEPARATOR)[1]
             if x == FAILURE_MESSAGE:
                 write_to_log("[ClientBl] request data received failure message from server")
-                fetch = "Server failed to find requested data"
+                raise Exception("Server failed to find requested data")
             else:
                 x = json.loads(x)
                 fetch = x
-            return fetch
+            return True, fetch
 
         except Exception as e:
-            write_to_log(f"[ClientBL] Exception on request projects {e}")
-            self.last_error = f"Exception in [ClientBL] request projects: {e}"
-            return None
+            write_to_log(f"[ClientBL] Exception on request data {e}")
+            self.last_error = f"Exception in [ClientBL] request data: {e}"
+            return False, None
 
     def request_file(self, node_id, file_id, file_name):
+        """
+        requests a specific file
+        :param node_id: id of the node the file belongs to
+        :param file_id: id of the file
+        :param file_name: the name of the file
+        :return: bool whether the request was successful
+        """
         try:
             file_dir = os.path.dirname(os.path.realpath('__file__'))
-            file_name = os.path.join(file_dir, f'Files/{file_name}')
+            file_name = os.path.join(file_dir, f'Files\\{file_name}')
             self.comtocol.send_sym(f"FLFT<{node_id}>{file_id}".encode())
             success, file = self.comtocol.receive_raw_sym()
-            with open(file_name, "wb") as new_file:
+            with open(f'{file_name}', "wb") as new_file:
                 new_file.write(file)
             return success
         except Exception as e:
-            write_to_log(f"[ClientBL] Exception on request projects {e}")
-            self.last_error = f"Exception in [ClientBL] request projects: {e}"
+            write_to_log(f"[ClientBL] Exception on request file {e}")
+            self.last_error = f"Exception in [ClientBL] request file: {e}"
             return False
 
     def login(self, username, password):
+        """
+        sends login request to server
+        :param username: username of account
+        :param password: password of account
+        :return: returns the servers response to the login request
+        """
         self.comtocol.send_sym(f"LGIN<{username}>{password}".encode())
         success, x = self.comtocol.receive_sym()
         x = x.decode()
         return x
 
     def register(self, username, password):
+        """
+        sends register request to server
+        :param username: username of account
+        :param password: password of account
+        :return:
+        """
         self.comtocol.send_sym(f"CRET<user>{username}>{password}".encode())
         success, x = self.comtocol.receive_sym()
         x = x.decode()
         return x
 
     def upload_file(self, file_name, node_id):
+        """
+        uploads a file to a node in the server
+        :param file_name: name of the file
+        :param node_id: id of the destination node
+        :return:
+        """
         self.comtocol.send_sym(f"FILE<{file_name}>{node_id}".encode())
         self.file_send(file_name)
 
     def file_send(self, file_name):
-        with open(file_name, "rb") as file:
+        """
+        sends a file to the server
+        :param file_name: name of the file
+        :return:
+        """
+        with open(f'Files/{file_name}', "rb") as file:
             self.comtocol.send_raw_sym(file.read())
 
     def update_position(self, collection: str, item_id: str, settings: dict) -> str:
+        """
+        sends a request to the server to update the position of a node according to the clients positions
+        :param collection: id of updated collection (nodes)
+        :param item_id: id of updated item
+        :param settings: a new settings dict that has the updated positions
+        :return: the servers response or a failure message defined in the protocol
+        """
         settings = json.dumps(settings)
         self.comtocol.send_sym(f"UPDT<{item_id}>{collection}>settings>{settings}".encode())
         success, x = self.comtocol.receive_sym()
@@ -192,6 +213,12 @@ class ClientBl:
             return x
 
     def delete_node(self, item_id, project_id):
+        """
+        sends a request to delete a node to the server
+        :param item_id: id of the node
+        :param project_id: id of the project the node belongs to
+        :return:
+        """
         self.comtocol.send_sym(f"DELT<nodes>{item_id}>{project_id}".encode())
         success, x = self.comtocol.receive_sym()
         if not success:
@@ -200,6 +227,12 @@ class ClientBl:
             return x
 
     def delete_vein(self, item_id, project_id):
+        """
+        sends a request to delete a vein to the server
+        :param item_id: id of the vein
+        :param project_id: id of the project the vein belongs to
+        :return:
+        """
         self.comtocol.send_sym(f"DELT<veins>{item_id}>{project_id}".encode())
         success, x = self.comtocol.receive_sym()
         if not success:
@@ -208,6 +241,14 @@ class ClientBl:
             return x
 
     def create_node(self, project_id: str, permissions: list, item_data: list, settings: dict):
+        """
+        sends a request to create a node to the server
+        :param project_id: id of the project the new node belongs to
+        :param permissions: permissions list of the people allowed to access the node
+        :param item_data: the node_data of the node
+        :param settings: the settings dict of the node
+        :return:
+        """
         permissions = json.dumps(permissions)
         item_data = json.dumps(item_data)
         settings = json.dumps(settings)
@@ -220,6 +261,14 @@ class ClientBl:
             return x
 
     def create_vein(self, project_id: str, permissions: list, item_data: str, settings: dict):
+        """
+        sends a request to create a vein to the server
+        :param project_id: id of the project the new vein belongs to
+        :param permissions: permissions list of the people allowed to access the vein
+        :param item_data: the vein_data of the vein
+        :param settings: the settings dict of the vein
+        :return:
+        """
         permissions = json.dumps(permissions)
         settings = json.dumps(settings)
         self.comtocol.send_sym(f"CRET<vein>{project_id}>{permissions}>{item_data}>{settings}".encode())
@@ -231,9 +280,16 @@ class ClientBl:
             return x
 
     def disconnect(self):
+        """
+        sends a disconnect msg as defined in the protocol to the server
+        :return:
+        """
         msg = DISCONNECT_MESSAGE
         self.comtocol.send_sym(msg.encode())
         self.flags["running"] = False
+
+    def get_error(self):
+        return self.last_error
 
 
 if __name__ == "__main__":

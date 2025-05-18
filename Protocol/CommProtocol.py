@@ -44,6 +44,11 @@ class EncryptProtocol:
         self.init_vector = None
 
     def encrypt_asymmetric(self, content: bytes) -> tuple:
+        """
+        encrypts a message using rsa
+        :param content: message in bytes
+        :return: bool for success and the encrypted result
+        """
         try:
             result = self.public_key.encrypt(
                 content,
@@ -61,6 +66,11 @@ class EncryptProtocol:
             return False, ""
 
     def decrypt_asymmetric(self, cryptid: bytes) -> tuple:
+        """
+        decrypts a message using rsa
+        :param cryptid: encrypted message in bytes
+        :return: bool for success and the decrypted result
+        """
         try:
             content = self.private_key.decrypt(
                 cryptid,
@@ -78,6 +88,11 @@ class EncryptProtocol:
             return False, ""
 
     def encrypt_symmetric(self, content: bytes) -> tuple:
+        """
+        encrypts message with AES
+        :param content:message in bytes
+        :return:bool for success and encrypted message
+        """
         try:
             algorithm = algorithms.AES(self.symmetric_key)
             mode = modes.CTR(self.init_vector)
@@ -94,6 +109,11 @@ class EncryptProtocol:
             return False, ""
 
     def decrypt_symmetric(self, cryptid: bytes) -> tuple:
+        """
+        decrypts message with AES
+        :param cryptid:encrypted message in bytes
+        :return: bool for success and decrypted message
+        """
         try:
             algorithm = algorithms.AES(self.symmetric_key)
             mode = modes.CTR(self.init_vector)
@@ -111,6 +131,10 @@ class EncryptProtocol:
             return False, ""
 
     def generate_asymmetric_key(self) -> bool:
+        """
+        generates a rsa asymmetric public and private key
+        :return: bool for success
+        """
         key_size = 2048
         try:
             self.private_key = rsa.generate_private_key(
@@ -134,6 +158,10 @@ class EncryptProtocol:
         )
 
     def generate_symmetric_key(self) -> bool:
+        """
+        generates a key for use by AES
+        :return: bool for success
+        """
         try:
             self.symmetric_key = secrets.token_bytes(32)
             self.init_vector = secrets.token_bytes(16)
@@ -145,16 +173,35 @@ class EncryptProtocol:
             return False
 
     def set_symmetric_key(self, sym_key, init_vector):
+        """
+        sets symmetric key and init vector to input
+        :param sym_key: symmetric key
+        :param init_vector: the init vector
+        :return:
+        """
         self.symmetric_key = sym_key
         self.init_vector = init_vector
 
     def get_symmetric_key(self):
+        """
+        returns the symmetric key
+        :return: the symmetric key
+        """
         return self.symmetric_key, self.init_vector
 
     def set_public_key(self, public_key):
+        """
+        sets public key to input
+        :param public_key: public key
+        :return:
+        """
         self.public_key = serialization.load_pem_public_key(public_key)
 
     def get_public_key(self):
+        """
+        returns the public key
+        :return: the public key
+        """
         return self.public_key.public_bytes(encoding=serialization.Encoding.PEM,
                                             format=serialization.PublicFormat.SubjectPublicKeyInfo)
 
@@ -170,6 +217,13 @@ class ComProtocol:
         self.cryptocol = EncryptProtocol()
 
     def attach(self, ip: str, port: int, c_socket: socket):
+        """
+        attaches socket for client handle
+        :param ip: ip
+        :param port: port
+        :param c_socket: given client socket
+        :return:
+        """
         self.ip = ip
         self.port = port
         self.connection_type = CLIENT_CONNECTION_TYPE
@@ -177,11 +231,11 @@ class ComProtocol:
 
     def connect(self, ip: str, port: int, connection_type: str) -> bool:
         """
-
-        :param ip:
-        :param port:
-        :param connection_type:
-        :return:
+        connects to server or binds server socket depending on connection_type
+        :param ip: ip to bind/connect to
+        :param port: port to bind/connect to
+        :param connection_type: connection type can be either client or server
+        :return:bool for success
         """
         self.ip = ip
         self.port = port
@@ -203,6 +257,11 @@ class ComProtocol:
             return False
 
     def accept_handler(self, timer_len: int):
+        """
+        accepts incoming connections
+        :param timer_len: length of timeout for socket
+        :return: either nothing or the ip and port of the socket
+        """
         try:
             self.socket.settimeout(timer_len)
             return self.socket.accept()
@@ -213,6 +272,11 @@ class ComProtocol:
             return None, None
 
     def send(self, msg: str) -> bool:
+        """
+        sends a completely un encrypted message
+        :param msg: the message
+        :return: bool for success
+        """
         try:
             msg = self.format_value(msg)
             self.socket.send(msg.encode())
@@ -223,6 +287,10 @@ class ComProtocol:
             return False
 
     def send_public_key(self):
+        """
+        sends the public key over asymmetric encrypted message
+        :return: bool for success
+        """
         try:
             self.cryptocol.generate_asymmetric_key()
             value = self.cryptocol.get_public_key()
@@ -299,9 +367,18 @@ class ComProtocol:
             return False
 
     def return_error(self):
+        """
+        returns last error
+        :return: last error
+        """
         return self.last_error
 
     def send_raw(self, raw: bytes):
+        """
+        sends an unencrypted raw message in chunks
+        :param raw: the message
+        :return: bool for success
+        """
         try:
             raw_len = len(raw)
             msg = self.format_value(str(raw_len))
@@ -319,22 +396,41 @@ class ComProtocol:
             return False
 
     def gen_symmetric_key(self):
+        """
+        generates a new symmetric key and init vector
+        :return: symmetric key and init vector
+        """
         self.cryptocol.generate_symmetric_key()
         return self.cryptocol.get_symmetric_key()
 
     def set_symmetric_key(self, sym_key, init_vector):
+        """
+        sets the symmetric key and init vector to given
+        :param sym_key: symmetric key
+        :param init_vector: init vector
+        :return:
+        """
         self.cryptocol.set_symmetric_key(sym_key, init_vector)
 
     def format_value(self, value: str):
+        """
+        symmetrically encrypts then formats given string into the format i use
+        :param value: string
+        :return: formatted string or None if it failed to encrypt it
+        """
         success, value = self.cryptocol.encrypt_symmetric(value.encode())
         if success:
-            #value = value.decode()
             value_len = str(len(value)).zfill(HEADER_SIZE)
             return f"{ value_len }{ value }"
         else:
             return None
 
     def raw_receive(self, length):
+        """
+        receives a raw message in chunks unencrypted
+        :param length: length of message
+        :return: received data or none if it failed
+        """
         try:
             raw_data: bytes = b""
 
@@ -349,14 +445,28 @@ class ComProtocol:
             self.last_error = f"Exception in ComProtocol receive_raw: {e}"
             return None
 
-    def decrypt_data(self, data):
+    def decrypt_data(self, data: bytes):
+        """
+        symmetrically decrypts given value
+        :param data: value
+        :return: bool for success and decrypted value
+        """
         _, value = self.cryptocol.decrypt_symmetric(data)
         return _, value
 
     def decrypt_data_asym(self, data):
+        """
+        asymmetrically decrypts given value
+        :param data: value
+        :return: bool for success and decrypted value
+        """
         return self.cryptocol.decrypt_asymmetric(data)
 
     def receive_public_key(self):
+        """
+        receives the public key unencrypted
+        :return: public key or none if failed
+        """
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
 
@@ -365,11 +475,15 @@ class ComProtocol:
             return data
 
         except Exception as e:
-            """write_to_log(f"[ComProtocol] Exception on receive public key: {e}")
-            self.last_error = f"Exception in ComProtocol receive public key: {e}")"""
+            write_to_log(f"[ComProtocol] Exception on receive public key: {e}")
+            self.last_error = f"Exception in ComProtocol receive public key: {e}"
             return None
 
     def receive_asym(self):
+        """
+        receives message asymmetrically encrypted
+        :return: bool for success and message or none if failed
+        """
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
 
@@ -380,11 +494,15 @@ class ComProtocol:
             return success, data
 
         except Exception as e:
-            """write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
-            self.last_error = f"Exception in ComProtocol receive asymmetric: {e}")"""
+            write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
+            self.last_error = f"Exception in ComProtocol receive asymmetric: {e}"
             return False, None
 
     def receive_sym(self):
+        """
+        receives message symmetrically encrypted
+        :return: bool for success and message or none if failed
+        """
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
 
@@ -395,11 +513,15 @@ class ComProtocol:
             return success, data
 
         except Exception as e:
-            """write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
-            self.last_error = f"Exception in ComProtocol receive asymmetric: {e}")"""
+            write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
+            self.last_error = f"Exception in ComProtocol receive asymmetric: {e}"
             return False, None
 
     def receive_raw_sym(self):
+        """
+        receives length of raw then receives message symmetrically encrypted in chunks
+        :return: bool for success and received decrypted raw data
+        """
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
 
@@ -414,11 +536,15 @@ class ComProtocol:
             return True, raw_data
 
         except Exception as e:
-            """write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
-            self.last_error = f"Exception in ComProtocol receive asymmetric: {e}")"""
+            write_to_log(f"[ComProtocol] Exception on receive asymmetric: {e}")
+            self.last_error = f"Exception in ComProtocol receive asymmetric: {e}"
             return False, None
 
     def receive(self):
+        """
+        receives unencrypted message
+        :return: message
+        """
         try:
             length = int(self.socket.recv(HEADER_SIZE).decode())
             is_raw = self.socket.recv(1).decode()
@@ -431,17 +557,29 @@ class ComProtocol:
             return data
 
         except Exception as e:
-            """write_to_log(f"[ComProtocol] Exception on receive: {e}")
-            self.last_error = f"Exception in ComProtocol receive: {e}")"""
+            write_to_log(f"[ComProtocol] Exception on receive: {e}")
+            self.last_error = f"Exception in ComProtocol receive: {e}"
             return None
 
     def is_valid(self) -> bool:
+        """
+        checks if socket exists
+        :return: bool for if socket isnt None
+        """
         return self.socket is not None
 
     def whos_there(self):
+        """
+        returns ip and port
+        :return: ip and port
+        """
         return self.ip, self.port
 
     def give_me_keys(self):
+        """
+        return symmetric key
+        :return: symmetric key
+        """
         return self.cryptocol.get_symmetric_key()
 
 

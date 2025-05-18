@@ -17,23 +17,31 @@ class Node:
     _callback_download_file: any
     _callback_open_file: any
     _callback_delete_node: any
+    _callback_delete_file: any
 
     _input_id:  int
     _output_id: int
 
-    def __init__(self, parent: int, tag: str, title: str, position: list, information: str):
+    def __init__(self, parent: int, tag: str, title: str, position: list, information: str, files):
         self._parent = parent
         self._tag = tag
         self._title = ""
         self._info = information
         self._callback = None
+        self._files = files
 
         self.__init_node_widget(title, position)
 
     def __init_node_widget(self, title: str, position: list):
+        """
+        creates the node object in the ui and its components
+        :param title: title of the node
+        :param position: [x,y] pos of node
+        :return:
+        """
         
         self._id = ui.add_node(parent=self._parent, label=title, pos=[position[0], position[1]])
-
+        files = []
         self._title = title
 
         self._input_id = ui.add_node_attribute(parent=self._id, attribute_type=ui.mvNode_Attr_Input)
@@ -42,55 +50,117 @@ class Node:
         ui.add_text(parent=self._output_id)
 
         with ui.node_attribute(parent=self._id):
-            #ui.add_button(label=f"Press to add another Node", callback=self.__callback_wrap)
-            ui.add_text( self._info )
-            ui.add_button(label="Download File", callback=self.__callback_download_file)
-            ui.add_button(label="Open File", callback=self.__callback_open_file)
-            ui.add_button(label="Delete File", callback=self.__callback_delete_node) # TODO
+            ui.add_text(self._info)
             ui.add_button(label="Delete Node", callback=self.__callback_delete_node)
-        
-    def __callback_wrap(self, *args):
-        
-        if self._callback is None:
-            return
-        
-        self._callback()
+            if self._files:
+                print(self._files)
+                for item in self._files:
+                    files.append(item["_id"])
+                print(files)
+                ui.add_listbox(items=files, callback=self.__on_file_press, width=200)
+            ui.add_text(f"selected file is: None", tag=f"SelectFileName{self._tag}")
+            ui.add_button(label="Download File", tag=f"FileDownloadButton{self._tag}")
+            ui.add_button(label="Open File", tag=f"FileOpenButton{self._tag}")
+            ui.add_button(label="Delete File", tag=f"FileDeleteButton{self._tag}")
+
+    def __on_file_press(self, sender, app_data):
+        """
+        changes which file name is displayed and what the callbacks input
+        :param sender: element triggering the function, not needed
+        :param app_data: the file id pressed
+        :return:
+        """
+        file_name = None
+        found_name = False
+        try:
+            for file in self._files:
+                if file["_id"] == app_data:
+                    file_name = file["settings"]["name"]
+                    found_name = True
+        except:
+            file_name = "failed to find file name"
+        ui.set_value(f"SelectFileName{self._tag}", f"selected file is: {file_name}")
+        ui.configure_item(f"FileDownloadButton{self._tag}", label=f"Download {app_data}",
+                          callback=lambda: self.__callback_download_file(app_data, file_name, found_name))
+        ui.configure_item(f"FileDeleteButton{self._tag}", label=f"Delete {app_data}",
+                          callback=lambda: self.__callback_delete_file(app_data))
 
     def __callback_delete_node(self):
+        """
+        calls the delete node callback if it exists
+        :return:
+        """
 
         if self._callback_delete_node is None:
             return
 
         self._callback_delete_node(self._tag)
 
-    def __callback_download_file(self, *args):
+    def __callback_download_file(self, file_id, file_name: str, found_name: bool):
+        """
+        calls the download callback if it exists
+        :param file_id: id of file selected
+        :param file_name: name of selected file
+        :param found_name: whether we managed to find the name of the file
+        :return:
+        """
         if self._callback_download_file is None:
             return
+        if found_name:
+            self._callback_download_file(self._tag, file_id, file_name)
 
-        self._callback_download_file(self._tag)
-
-    def __callback_open_file(self, *args):
-        if self.__callback_open_file is None:
+    def __callback_delete_file(self):
+        """
+        calls the delete file callback if it exists
+        :return:
+        """
+        if self._callback_delete_file is None:
             return
 
-        self.__callback_open_file(self._tag)
+        self._callback_delete_file(self._tag)
 
     def get_id(self):
+        """
+        returns db id of node
+        :return: db id of node
+        """
         return self._id
     
     def get_tag(self):
+        """
+        returns internal tag of node
+        :return: internal ui tag of node
+        """
         return self._tag
     
     def get_name(self):
+        """
+        returns name of node
+        :return: name of node
+        """
         return self._title
     
     def get_input(self):
+        """
+        returns id of input point for veins
+        :return: id of input point for veins
+        """
         return self._input_id
 
     def get_output(self):
+        """
+        returns id of output point for veins
+        :return: id of output point for veins
+        """
         return self._output_id
     
     def attach_callback(self, new_callback, callback_type: int = 1):
+        """
+        attaches given callback to the nodes callbacks
+        :param new_callback: given callback
+        :param callback_type: which of the nodes callbacks to attach it to
+        :return:
+        """
 
         if callback_type == 1:
             self._callback = new_callback
@@ -106,6 +176,10 @@ class Node:
 
         if callback_type == 4:
             self._callback_delete_node = new_callback
+            return
+
+        if callback_type == 5:
+            self._callback_delete_file = new_callback
             return
 
 
@@ -127,25 +201,46 @@ class Vein:
         self._callback = None
 
     def attach_nodes(self, start_node: Node, end_node: Node):
+        """
+        attaches two nodes
+        :param start_node: node vein starts at
+        :param end_node: node vein ends at
+        :return:
+        """
         
         self._start_node = start_node
         self._end_node = end_node
 
-        self._id = ui.add_node_link( start_node.get_output(), end_node.get_input(), parent=self._parent )
+        self._id = ui.add_node_link(start_node.get_output(), end_node.get_input(), parent=self._parent)
 
     def on_press(self):
+        """
+        triggers the on press callback which opens a window with info
+        :return:
+        """
         if self._callback is None:
             return
         
         self._callback(self._start_node.get_name(), self._end_node.get_name())
 
     def get_id(self):
+        """
+        :return: db id of vein
+        """
         return self._id
     
     def get_tag(self):
+        """
+        :return: internal ui tag of vein
+        """
         return self._tag
 
     def attach_callback(self, new_callback):
+        """
+        attaches given callback to the veins callback
+        :param new_callback: given callback
+        :return:
+        """
         self._callback = new_callback
 
 
@@ -165,21 +260,32 @@ class NodeEditor:
         self._parent = parent
 
         self._id = -1
-        self._tags = { }
+        self._tags = {}
 
-        self._veins = { }
-        self._nodes = { }
+        self._veins = {}
+        self._nodes = {}
 
         self._did_press = False
 
-        self.__setup_editor( )
+        self.__setup_editor()
 
     def __setup_editor(self):
+        """
+        creates the ui element of the editor
+        :return:
+        """
         self._id = ui.add_node_editor(parent=self._parent, minimap=True, minimap_location=ui.mvNodeMiniMap_Location_BottomRight)
 
     def add_vein(self, vein_tag, start_node: Node, end_node: Node):
+        """
+        creates new vein object and attaches it
+        :param vein_tag: internal tag the vein should have
+        :param start_node: node it starts at
+        :param end_node: node it ends at
+        :return: new vein object
+        """
         if vein_tag in self._veins:
-            raise Exception("Why you want to add the same vein tag?!??!!. U F&#@^#$ N$@@3&")
+            raise Exception("Why you want to add the same vein tag?")
         
         new_vein = Vein(self._id, vein_tag)
 
@@ -190,11 +296,20 @@ class NodeEditor:
 
         return new_vein
 
-    def add_node(self, node_tag, name, position: list, information: str) -> Node:
+    def add_node(self, node_tag, name, position: list, information: str, files) -> Node:
+        """
+        creates new node object
+        :param node_tag: ui tag node should have
+        :param name: name for display
+        :param position: its [x,y] position
+        :param information: a description for it
+        :param files: list of files or None if nothing was found
+        :return: new node object
+        """
         if node_tag in self._nodes:
-            raise Exception("Why you want to add the same node tag?!??!!. U F&#@^#$ N$@@3&")
+            raise Exception("Why you want to add the same node tag?")
         
-        new_node = Node(self._id, node_tag, name, position, information)
+        new_node = Node(self._id, node_tag, name, position, information, files)
 
         self._tags[new_node.get_id()] = node_tag
         self._nodes[node_tag] = new_node
@@ -202,6 +317,10 @@ class NodeEditor:
         return new_node
 
     def update(self):
+        """
+        checks if we pressed just 1 vein and if we did does the callback to open a window with info
+        :return: either nothing or the clear function for the select
+        """
         
         selected_links: list = ui.get_selected_links(self._id)
         length: int = len(selected_links)
@@ -224,6 +343,11 @@ class NodeEditor:
             return ui.clear_selected_links(self._id)
         
     def __callback_on_press(self, id_value: int):
+        """
+        finds the tag of the vein we pressed and runs its on press function
+        :param id_value:
+        :return:
+        """
         if self._did_press:
             return
 
@@ -233,6 +357,11 @@ class NodeEditor:
         self._veins[tag].on_press()
 
     def find_node(self, node_tag) -> any:
+        """
+        finds a node using its ui tag
+        :param node_tag:
+        :return: node object
+        """
 
         if node_tag in self._nodes:
             return self._nodes[node_tag]
@@ -240,6 +369,10 @@ class NodeEditor:
         return None
 
     def return_positions(self):
+        """
+        gets the positions of all the nodes
+        :return: dict consisting of: {node db id: [x,y]} for all nodes
+        """
         positions = {}
         for item in self._tags:
             if self._tags[item] in self._nodes:
@@ -248,6 +381,10 @@ class NodeEditor:
         return positions
 
     def get_nodes(self):
+        """
+        gets all the nodes
+        :return: dict consisting of: {node name: node db id} for all nodes
+        """
         nodes = {}
         for item in self._tags:
             if self._tags[item] in self._nodes:
@@ -256,6 +393,10 @@ class NodeEditor:
         return nodes
 
     def clear_editor(self):
+        """
+        clears the editor deleting everything
+        :return:
+        """
         ui.delete_item(self._id, children_only=True)
         self._veins.clear()
         self._nodes.clear()
@@ -283,22 +424,25 @@ class ClientGUI:
         self.project_id = None
 
     def __create_window(self):
-        
-        # Create dearpygui context
+        """
+        creates the viewport and calls the setup for dearpygui
+        :return:
+        """
+
         ui.create_context()
 
-        # Create viewport
         ui.create_viewport(title="Client", width=VIEWPORT_WIDTH, height=VIEWPORT_HEIGHT)
 
-        # Setup dear py gui
         ui.setup_dearpygui()
 
     def __load_windows(self):
-        
-        # Create a window instance
+        """
+        creates the login window and calls the setup for the node editor
+        :return:
+        """
+
         self._window = ui.add_window(no_title_bar=True, no_move=True, no_resize=True, no_collapse=True, no_close=True)
 
-        # First set the login window to be prim
         ui.set_primary_window(self._window, True)
 
         self.__init_login_window()
@@ -308,6 +452,10 @@ class ClientGUI:
         self.__create_node_editor()
 
     def __init_login_window(self):
+        """
+        initialises the login window
+        :return:
+        """
         with ui.window(label="Login / Register", no_close=True, no_collapse=True, pos=[200, 200], modal=True, tag="LoginWindow"):
             ui.add_text("GitSheet")
             ui.add_separator()
@@ -331,12 +479,16 @@ class ClientGUI:
                 ui.add_input_text(width=200, password=True, tag="PasswordEntry")
 
             with ui.group(horizontal=True):
-                ui.add_button(label="Register", callback=self.__press_register )
-                ui.add_button(label="Login", callback=self.__press_login )
+                ui.add_button(label="Register", callback=self.__press_register)
+                ui.add_button(label="Login", callback=self.__press_login)
 
             ui.add_text(default_value="Welcome to GitSheet!", tag="ErrorLogin")
 
     def __press_register(self):
+        """
+        callback for when register button is pressed, sends a request to create a new user
+        :return:
+        """
         try:
             ip, port = self.__get_connection_details()
             self.start_client(ip, port)
@@ -348,7 +500,11 @@ class ClientGUI:
         except Exception as e:
             self.__failed_login(f"Encountered error on login: {e}")
 
-    def __press_login(self, *args):
+    def __press_login(self):
+        """
+        callback for when login button is pressed, sends a request log in to server
+        :return:
+        """
         try:
             ip, port = self.__get_connection_details()
             self.start_client(ip, port)
@@ -363,6 +519,10 @@ class ClientGUI:
             self.__failed_login(f"Encountered error on login: {e}")
 
     def __load_project_screen(self):
+        """
+        changes the login screen into the project cause cant have two different windows be modal
+        :return: prints an error
+        """
         try:
             projects = self.clientbl.request_projects()
             if type(projects) != list:
@@ -381,7 +541,7 @@ class ClientGUI:
 
             with ui.group(parent="LoginWindow", horizontal=True):
 
-                ui.add_listbox(items=self.all_project_names, callback=self.__on_list_press, width=200 )
+                ui.add_listbox(items=self.all_project_names, callback=self.__on_list_press, width=200)
 
                 with ui.group():
                     ui.add_text("Select Project")
@@ -391,14 +551,26 @@ class ClientGUI:
             self.__failed_login(f"Encountered error on login: {e}")
     
     def __on_list_press(self, sender, app_data):
+        """
+        changes the selected item to the one we pressed by changing the text and the args for the callbacks
+        :param sender: element triggering the function, not needed
+        :param app_data: name of pressed project
+        :return:
+        """
         
-        ui.set_value( "ProjectName", f"{app_data}")
+        ui.set_value("ProjectName", f"{app_data}")
         ui.configure_item("ProjectLoadButton", label=f"Load {app_data}")
 
-        # TODO ! Update the callback based on Project name
+
         ui.configure_item("ProjectLoadButton", callback=lambda: self.__load_project(app_data))
 
     def __load_project(self, project_name: str):
+        """
+        calls for the load functions for the gui to load the veins and nodes associated with the project we selected
+        and closes the login window
+        :param project_name: name of selected project
+        :return:
+        """
         self.project_id = self.all_project_ids[project_name]
         self.load_nodes()
         self.load_veins()
@@ -407,19 +579,13 @@ class ClientGUI:
 
         ui.delete_item("LoginWindow")
 
-        #node1 = self._node_editor.add_node( "Node1", "Project1", [100, 400], "Some first Node" )
-        #node2 = self._node_editor.add_node( "Node2", "Project2", [300, 100], "Extremly aggresive. not recommanded to talk to" )
-        #node3 = self._node_editor.add_node( "Node3", "Project3", [500, 230], "Toxic but cute :P" )
-
-        #node3.attach_callback( self.__test_callback )
-
-        #v = self._node_editor.add_vein("Vein1", node1, node2)
-        #v2 = self._node_editor.add_vein("Vein2", node1, node3)
-
-        #v.attach_callback(self.__add_vein_window)
-        #v2.attach_callback(self.__add_vein_window)
-
     def __add_vein_window(self, start_name, end_name):
+        """
+        creates the window for vein info
+        :param start_name: name of veins start node
+        :param end_name: name of veins end node
+        :return:
+        """
         with ui.window(label="Vein Info", pos=[200, 200]):
             ui.add_input_text(multiline=True, default_value=f"Linked {start_name} - {end_name}", tag="VeinValue")
             ui.add_button(label="Save changes", callback=self.__callback_save_vein)
@@ -430,37 +596,46 @@ class ClientGUI:
 
         # TODO: Send this value
         
-    def __failed_login( self, reason):
+    def __failed_login(self, reason):
+        """
+        changes the text at the bottom of the login window to show errors
+        :param reason: the error
+        :return:
+        """
         ui.configure_item("ErrorLogin", default_value=f"{reason}!")
         print(f"{reason}!")
 
     def __get_connection_details(self) -> tuple:
+        """
+        return connection details from the input fields
+        :return:
+        """
         return ui.get_value("IpInput"), int(ui.get_value("PortInput"))
 
     def __show_window(self):
-
+        """
+        shows the viewport and does a while loop to constantly update the editor and render the frame
+        :return:
+        """
         ui.show_viewport()
-        
         while ui.is_dearpygui_running():
-            
-            # Execute the .update of the node editor
-            self._node_editor.update( )
-
-            # Render the frame
-            ui.render_dearpygui_frame( )
-
-        # ui.start_dearpygui()
+            self._node_editor.update()
+            ui.render_dearpygui_frame()
 
     def __unload(self):
-
-        # Destroy context
+        """
+        unloads the ui and calls for the stop client function
+        :return:
+        """
         ui.destroy_context()
-
         self.stop_client()
 
-        # TODO !!! Clear things you havent on unload
 
     def execute(self):
+        """
+        calls all the necessary functions to start and eventually end the application
+        :return:
+        """
         # Initialize protocols
         self.init_protocols()
 
@@ -471,6 +646,10 @@ class ClientGUI:
         self.__unload()
 
     def __load_menu_bar(self):
+        """
+        creates the menu bar at the top and attaches its callbacks
+        :return:
+        """
 
         menu_bar_id = ui.add_menu_bar(parent=self._window)
 
@@ -481,12 +660,20 @@ class ClientGUI:
             ui.add_menu_item(label="Save new position", callback=self.__callback_save_position)
 
     def __callback_refresh_button(self):
+        """
+        clears the editor and then loads the veins and nodes again
+        :return:
+        """
         self._node_editor.clear_editor()
         self.load_nodes()
         self.load_veins()
         print("Refreshed editor")
 
     def __callback_save_position(self):
+        """
+        sends the positions of the nodes to server and refreshes
+        :return:
+        """
         positions = self._node_editor.return_positions()
         print(positions)
         for item in positions:
@@ -495,6 +682,10 @@ class ClientGUI:
         self.__callback_refresh_button()
 
     def __callback_add_node(self):
+        """
+        creates the add node window and calls the function to send a request to add a new node
+        :return:
+        """
         if ui.does_item_exist("NodeWindow"):
             ui.delete_item("NodeWindow")
         try:
@@ -505,11 +696,19 @@ class ClientGUI:
             self.error_popup(f"Encountered error on node create: {e}")
 
     def add_node(self):
+        """
+        sends a request to add a new node and refreshes
+        :return:
+        """
         self.clientbl.create_node(str(self.project_id), [self.userid],
                                   [ui.get_value("NodeData")], {"x": 0, "y": 0})
         self.__callback_refresh_button()
 
     def __callback_add_vein(self):
+        """
+        creates the add vein window and calls the function to send a request to add a new vein
+        :return:
+        """
         if ui.does_item_exist("VeinWindow"):
             ui.delete_item("VeinWindow")
         try:
@@ -530,6 +729,10 @@ class ClientGUI:
             self.error_popup(f"Encountered error on vein create: {e}")
 
     def add_vein(self):
+        """
+        sends a request to add a new vein and refreshes
+        :return:
+        """
         nodes = self._node_editor.get_nodes()
         self.clientbl.create_vein(str(self.project_id), [self.userid],
                                       ui.get_value("VeinData"), {"origin": nodes[ui.get_value("VeinStartNode")],
@@ -537,62 +740,99 @@ class ClientGUI:
         self.__callback_refresh_button()
 
     def error_popup(self, error):
+        """
+        creates a pop up window to display an error
+        :param error: the error
+        :return:
+        """
         with ui.window(label="Error", pos=[200, 200]):
             ui.add_text(f"{error}")
 
     def __create_node_editor(self):
+        """
+        creates the node editor object
+        :return:
+        """
         self._node_editor = NodeEditor(self._window)
 
-    def __test_callback(self):
-        self._node_editor.add_node("Node4", "Project4", [100, 100],  "im test")
-
     def init_protocols(self):
+        """
+        inits clientbl and its protocols
+        :return:
+        """
         self.clientbl = CBL()
         self.clientbl.init_protocols()
 
     def start_client(self, ip, port):
+        """
+        starts the client with a given ip and port attempting to connect
+        :param ip: server ip
+        :param port: server port
+        :return:
+        """
         self.clientbl.start_client(ip, port)
 
     def stop_client(self):
+        """
+        disconnects from server
+        :return:
+        """
         self.clientbl.disconnect()
     
     def load_nodes(self):
-        nodes: any = self.clientbl.request_data("nodes", self.project_id)
+        """
+        requests all projects nodes from server and then requests the files of each of them and then creates a node object
+        :return:
+        """
+        success, nodes = self.clientbl.request_data("nodes", self.project_id)
+        if success:
+            for item in nodes:
+                item: dict = item
+                success, files = self.clientbl.request_data("files", item['_id'])
+                current_node = self._node_editor.add_node(item['_id'], item['node_data'][0],
+                                                          [item['settings']["x"], item['settings']["y"]],
+                                                          item['node_data'][0], files)
+                current_node.attach_callback(self.__download_file, 2)
+                current_node.attach_callback(self.__delete_node, 4)
+                current_node.attach_callback(self.__delete_file, 5)
 
-        if type(nodes) == str:
-            return print("Ops")
+    def __download_file(self, node_tag, file_id, file_name):
+        """
+        callback for node to download a file from server
+        :param node_tag: db id of node file belongs to
+        :param file_id: db id of file
+        :param file_name: name of file
+        :return:
+        """
+        print(f"Need to download file {file_id} from node {node_tag}")
+        success = self.clientbl.request_file(node_tag, file_id, file_name)
+        if success:
+            self.error_popup(f"Successfully downloaded {file_name}!")
+        else:
+            self.error_popup(self.clientbl.get_error())
 
-        for item in nodes:
-            item: dict = item
+    def __delete_file(self, node_tag):
+        print(f"Need to delete from node {node_tag}")
 
-            current_node = self._node_editor.add_node(item['_id'], item['node_data'][0],
-                                                      [item['settings']["x"], item['settings']["y"]], "Info")
-            current_node.attach_callback(self.__download_file, 2)
-            current_node.attach_callback(self.__open_file, 3)
-            current_node.attach_callback(self.__delete_node, 4)
-
-    def __download_file(self, node_tag):
-        print(f"Need to download file from node {node_tag}")
-
-        # TODO ! Download file based on node tag
-
-    def __open_file(self, node_tag):
-        print(f"Need to open from node {node_tag}")
-
-        # TODO ! Perform open file based on node tag
+        # TODO ! Perform delete file
 
     def __delete_node(self, node_id):
-        print("got to delete")
+        """
+        calls for function to delete a node
+        :param node_id: id of node
+        :return:
+        """
         self.clientbl.delete_node(node_id, self.project_id)
-        print("deleted node")
         self.__callback_refresh_button()
 
     def load_veins(self):
-            veins: any = self.clientbl.request_data("veins", self.project_id)
+        """
+        fetches all veins from server and then creates ui objects for them
+        :return:
+        """
+        success, veins = self.clientbl.request_data("veins", self.project_id)
 
-            if type(veins) == str:
-                return print("type(veins) == str")
-
+        if success:
             for item in veins:
                 item: dict = item
 
@@ -607,4 +847,3 @@ class ClientGUI:
 
                 vein = self._node_editor.add_vein(item["_id"], start_node, end_node)
                 vein.attach_callback(self.__add_vein_window)
-
