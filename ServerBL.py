@@ -48,7 +48,6 @@ class ClientHandle:
     def handle_message(self, message):
         """
         processes the message depending on what header it has
-        TODO break this up into more functions and check for user id more often
         :param message: received message that need to be processed
         :return:
         """
@@ -60,72 +59,121 @@ class ClientHandle:
                     item_id = ObjectId(item_id)
                     parent_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[2]
                     parent_id = ObjectId(parent_id)
-                    self.delete_entry(item_id, collection, parent_id)
-                    self.comtocol.send_sym("delete successful".encode())
+                    self.delete_item_handle(collection, item_id, parent_id)
+
                 except Exception as e:
-                    self.comtocol.send_sym(FAILURE_MESSAGE.encode())
+                    self.comtocol.send_sym(f"Error deleting item: {e}".encode())
 
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["login"]:
-                username = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
-                print(username)
-                password = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
-                print(password)
-                success = self.login(username, password)
-                if success:
-                    self.comtocol.send_sym("login successful".encode())
-                else:
+                try:
+                    username = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
+                    print(username)
+                    password = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
+                    print(password)
+                    success = self.login(username, password)
+                    if success:
+                        self.comtocol.send_sym("login successful".encode())
+                        self.comtocol.send_sym(str(self.user_id).encode())
+                    else:
+                        raise Exception("Wrong password or username")
+                except Exception as e:
+                    self.comtocol.send_sym(f"Error on login {e}".encode())
                     self.comtocol.send_sym(FAILURE_MESSAGE.encode())
+
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["create"]:
+                has_permission = False
                 data_type = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
-                print(message)
                 try:
                     if data_type == "user":
                         username = message.split(PARAMETER_SEPARATOR)[1]
                         password = message.split(PARAMETER_SEPARATOR)[2]
                         self.add_entry(data_type, [username, password])
+
                     elif data_type == "node":
                         project_id = ObjectId(message.split(PARAMETER_SEPARATOR)[1])
                         permissions = json.loads(message.split(PARAMETER_SEPARATOR)[2])
+                        for index in range(len(permissions)):
+                            permissions[index] = ObjectId(permissions[index])
                         item_data = json.loads(message.split(PARAMETER_SEPARATOR)[3])
                         settings = json.loads(message.split(PARAMETER_SEPARATOR)[4])
-                        self.add_entry(data_type, [project_id, permissions, item_data, settings])
+                        projects = self.DB.fetch_projects(self.user_id)
+                        print(projects)
+                        print(project_id)
+                        for project in projects:
+                            if project_id == project["_id"]:
+                                has_permission = True
+                                print(has_permission)
+                        if has_permission:
+                            self.add_entry(data_type, [project_id, permissions, item_data, settings])
+                        else:
+                            raise Exception("User is not permitted to create node for this project")
+
                     elif data_type == "vein":
                         project_id = ObjectId(message.split(PARAMETER_SEPARATOR)[1])
                         permissions = json.loads(message.split(PARAMETER_SEPARATOR)[2])
+                        for index in range(len(permissions)):
+                            permissions[index] = ObjectId(permissions[index])
                         item_data = message.split(PARAMETER_SEPARATOR)[3]
                         settings = json.loads(message.split(PARAMETER_SEPARATOR)[4])
-                        self.add_entry(data_type, [project_id, permissions, item_data, settings])
+                        projects = self.DB.fetch_projects(self.user_id)
+                        for project in projects:
+                            if project_id == project["_id"]:
+                                has_permission = True
+                        if has_permission:
+                            self.add_entry(data_type, [project_id, permissions, item_data, settings])
+                        else:
+                            raise Exception("User is not permitted to create node for this project")
+
                     self.comtocol.send_sym(f"Successfully added {data_type}".encode())
+
                 except Exception as e:
                     self.comtocol.send_sym(str(e).encode())
+
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["file_fetch"]:
-                node_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
-                file_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
-                files = self.find_files(self.user_id, ObjectId(node_id))
-                file = None
-                for x in files:
-                    if x["_id"] == ObjectId(file_id):
-                        file = x
-                if file:
-                    self.comtocol.send_raw_sym(file["file"])
+                try:
+                    node_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[0]
+                    file_id = message.split(HEADER_SEPARATOR)[1].split(PARAMETER_SEPARATOR)[1]
+                    files = self.find_files(self.user_id, ObjectId(node_id))
+                    needed_file = None
+                    for file in files:
+                        if file["_id"] == ObjectId(file_id):
+                            needed_file = file
+                    if needed_file:
+                        self.comtocol.send_raw_sym(needed_file["file"])
+                except Exception as e:
+                    write_to_log(f"Failure in file fetch {e}")
+
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["file"]:
                 self.file_reception(message)
+
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["update"]:
-                x = FAILURE_MESSAGE
-                message_start = message.split(PARAMETER_SEPARATOR)[0]
-                item_id = message_start.split(HEADER_SEPARATOR)[1]
-                collection = message.split(PARAMETER_SEPARATOR)[1]
-                change_type = message.split(PARAMETER_SEPARATOR)[2]
-                change = message.split(PARAMETER_SEPARATOR)[3]
-                print(change)
-                if change_type == "settings":
-                    change = json.loads(change)
-                print(change)
-                print(type(change))
-                success = self.update_entry(ObjectId(item_id), collection, "replace", change, change_type)
-                if success:
-                    x = f"Successfully updated entry {item_id} in collection {collection} with {change} in field {change_type}"
-                self.comtocol.send_sym(x)
+                try:
+                    x = FAILURE_MESSAGE
+                    message_start = message.split(PARAMETER_SEPARATOR)[0]
+                    item_id = message_start.split(HEADER_SEPARATOR)[1]
+                    item_id = ObjectId(item_id)
+                    collection = message.split(PARAMETER_SEPARATOR)[1]
+                    change_type = message.split(PARAMETER_SEPARATOR)[2]
+                    change = message.split(PARAMETER_SEPARATOR)[3]
+                    if change_type == "settings":
+                        change = json.loads(change)
+
+                    has_permission = False
+                    if collection == "users":
+                        has_permission = True
+                    else:
+                        permission = self.DB.fetch_permission(item_id, collection)
+                        if self.user_id in permission:
+                            has_permission = True
+
+                    if has_permission:
+                        success = self.update_entry(ObjectId(item_id), collection, "replace", change, change_type)
+                        if success:
+                            x = f"Successfully updated entry {item_id} in collection {collection} with {change} in field {change_type}"
+                    self.comtocol.send_sym(x)
+
+                except Exception as e:
+                    self.comtocol.send_sym(f"Error updating entry: {e}".encode())
 
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
                 path_collection = {
@@ -175,13 +223,53 @@ class ClientHandle:
             write_to_log(f"[ClientHandle] Exception on handle message {e}")
             self.last_error = f"Exception in [ClientHandle] handle message: {e}"
 
+    def delete_item_handle(self, collection, item_id, parent_id):
+        """
+        checks if user is permitted to delete the item and then deletes it
+        :param collection: collection item belongs to, can be "nodes" "veins" "files"
+        :param item_id: id of item we want to delete
+        :param parent_id: id of their parent, project for nodes and veins, node for files
+        :return:
+        """
+        path_collection = {
+            "nodes": self.DB.fetch_veins_and_nodes,
+            "veins": self.DB.fetch_veins_and_nodes,
+            "files": self.DB.fetch_files
+        }
+        has_permission = False
+        vein_or_node = -1
+        chosen_path = path_collection[collection]
+
+        if collection == "veins":
+            vein_or_node = 0
+        elif collection == "nodes":
+            vein_or_node = 1
+
+        fetched_entries = chosen_path(self.user_id, parent_id)
+
+        if vein_or_node == -1:
+            print(fetched_entries)
+            for entry in fetched_entries:
+                if entry['_id'] == item_id:
+                    has_permission = True
+        else:
+            print(fetched_entries)
+            for entry in fetched_entries[vein_or_node]:
+                if entry['_id'] == item_id:
+                    has_permission = True
+        if has_permission:
+            self.delete_entry(item_id, collection, parent_id)
+            self.comtocol.send_sym("delete successful".encode())
+        else:
+            raise Exception("User has no permission to delete this item")
+
     def serialize(self, document_info: dict, fetch_type: str):
         """
         serializes a dictionary into a form that can be sent to client over socket
         this is needed because things are stored as lists within dicts and json doesn't like that
         :param document_info: dict were serializing
         :param fetch_type: type of fetch, can be "projects" "nodes" "files"
-        :return:
+        :return: bool for success, the serialized document or None if it failed
         """
         try:
             document_info['_id'] = str(document_info['_id'])
@@ -203,6 +291,11 @@ class ClientHandle:
             elif fetch_type == "files":  # fetch data for files does not include the file itself but only info
 
                 document_info['file'] = "PLACEHOLDER"
+
+            temp_list = []
+            for x in document_info['permission']:
+                temp_list.append(str(x))
+            document_info['permission'] = temp_list
 
             # document_info = json.dumps(document_info)    no longer necessary as I just dump the whole list
             # print(f"document_info is: {document_info}")  instead of dumping every dict
@@ -289,8 +382,8 @@ class ClientHandle:
         success, found_password, user_id = self.DB.fetch_user(username)
         if success:
             if self.DB.verify_hash(password, found_password):
-                self.user_id = username
-                print(f"user_id is now {username}")
+                self.user_id = user_id
+                print(f"user_id is now {user_id}")
                 return True
         return False
 
@@ -298,12 +391,11 @@ class ClientHandle:
         """
         deletes an entry in the DB
         :param entry_id: id of entry
-        :param collection: collection it belongs to
+        :param collection: collection it belongs to, allowed collections are as follows: "nodes" "veins" "files"
         :param parent_id: id of its parent
         :return:
         """
         x = self.DB.remove_entry(entry_id, collection, parent_id)
-        # allowed collections are as follows: "nodes" "veins" "files"
         print(x)
         return x
 

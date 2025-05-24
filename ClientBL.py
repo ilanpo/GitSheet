@@ -28,7 +28,7 @@ class ClientBl:
 
     def start_client(self, ip: str, port: int) -> bool:
         """
-        Recieves public key then generates and sends symmetric key
+        Receives public key then generates and sends symmetric key
         :param ip: ip of server
         :param port: port of server
         :return: True or False if the function succeeded
@@ -97,7 +97,7 @@ class ClientBl:
             self.last_error = f"Exception in [ClientBL] request projects: {e}"
             return None
 
-    def request_data(self, data_type: str, project_id):
+    def request_data(self, data_type: str, parent_id):
         """
         requests dara such as veins nodes or files belonging to a project / node from the server
         :param data_type: valid types are: veins nodes files (when requesting files note that you're requesting the file INFO not the file itself)
@@ -105,13 +105,12 @@ class ClientBl:
         :return:bool whether operation was successful and the found data
         """
         try:
-            self.comtocol.send_sym(f"FTCH<{data_type}>{project_id}".encode())
+            self.comtocol.send_sym(f"FTCH<{data_type}>{parent_id}".encode())
             success, x = self.comtocol.receive_sym()
             x = x.decode()
             x = x.split(HEADER_SEPARATOR)[1]
             if x == FAILURE_MESSAGE:
-                write_to_log("[ClientBl] request data received failure message from server")
-                raise Exception("Server failed to find requested data")
+                raise Exception(f"Server failed to find requested data {data_type} {parent_id}")
             else:
                 x = json.loads(x)
                 fetch = x
@@ -148,12 +147,14 @@ class ClientBl:
         sends login request to server
         :param username: username of account
         :param password: password of account
-        :return: returns the servers response to the login request
+        :return: returns the servers response to the login request and the user_id which could be FAILURE_MESSAGE if it failed the login
         """
         self.comtocol.send_sym(f"LGIN<{username}>{password}".encode())
         success, x = self.comtocol.receive_sym()
         x = x.decode()
-        return x
+        success, user_id = self.comtocol.receive_sym()
+        user_id = user_id.decode()
+        return x, user_id
 
     def register(self, username, password):
         """
@@ -204,6 +205,13 @@ class ClientBl:
             return x
 
     def update_vein_text(self, collection: str, item_id: str, vein_data: str):
+        """
+        sends a request to the server to update the data of a vein according to the clients positions
+        :param collection: id of updated collection (veins)
+        :param item_id: id of updated item
+        :param vein_data: the new vein data
+        :return: failure message or received response from server
+        """
         self.comtocol.send_sym(f"UPDT<{item_id}>{collection}>vein_data>{vein_data}".encode())
         success, x = self.comtocol.receive_sym()
         x = x.decode()
@@ -217,7 +225,7 @@ class ClientBl:
         sends a request to delete a node to the server
         :param item_id: id of the node
         :param project_id: id of the project the node belongs to
-        :return:
+        :return: failure message or received response from server
         """
         self.comtocol.send_sym(f"DELT<nodes>{item_id}>{project_id}".encode())
         success, x = self.comtocol.receive_sym()
@@ -231,7 +239,7 @@ class ClientBl:
         sends a request to delete a vein to the server
         :param item_id: id of the vein
         :param project_id: id of the project the vein belongs to
-        :return:
+        :return: failure message or received response from server
         """
         self.comtocol.send_sym(f"DELT<veins>{item_id}>{project_id}".encode())
         success, x = self.comtocol.receive_sym()
@@ -247,7 +255,7 @@ class ClientBl:
         :param permissions: permissions list of the people allowed to access the node
         :param item_data: the node_data of the node
         :param settings: the settings dict of the node
-        :return:
+        :return: failure message or received response from server
         """
         permissions = json.dumps(permissions)
         item_data = json.dumps(item_data)
@@ -267,7 +275,7 @@ class ClientBl:
         :param permissions: permissions list of the people allowed to access the vein
         :param item_data: the vein_data of the vein
         :param settings: the settings dict of the vein
-        :return:
+        :return: failure message or received response from server
         """
         permissions = json.dumps(permissions)
         settings = json.dumps(settings)

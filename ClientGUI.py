@@ -60,8 +60,8 @@ class Node:
                 ui.add_listbox(items=files, callback=self.__on_file_press, width=200)
             ui.add_text(f"selected file is: None", tag=f"SelectFileName{self._tag}")
             ui.add_button(label="Download File", tag=f"FileDownloadButton{self._tag}")
-            ui.add_button(label="Open File", tag=f"FileOpenButton{self._tag}")
-            ui.add_button(label="Delete File", tag=f"FileDeleteButton{self._tag}")
+            # ui.add_button(label="Open File", tag=f"FileOpenButton{self._tag}")
+            # ui.add_button(label="Delete File", tag=f"FileDeleteButton{self._tag}")
 
     def __on_file_press(self, sender, app_data):
         """
@@ -82,8 +82,8 @@ class Node:
         ui.set_value(f"SelectFileName{self._tag}", f"selected file is: {file_name}")
         ui.configure_item(f"FileDownloadButton{self._tag}", label=f"Download {app_data}",
                           callback=lambda: self.__callback_download_file(app_data, file_name, found_name))
-        ui.configure_item(f"FileDeleteButton{self._tag}", label=f"Delete {app_data}",
-                          callback=lambda: self.__callback_delete_file(app_data))
+        # ui.configure_item(f"FileDeleteButton{self._tag}", label=f"Delete {app_data}",
+        #                   callback=lambda: self.__callback_delete_file(app_data))
 
     def __callback_delete_node(self):
         """
@@ -109,7 +109,7 @@ class Node:
         if found_name:
             self._callback_download_file(self._tag, file_id, file_name)
 
-    def __callback_delete_file(self):
+    def __callback_delete_file(self, file_id):
         """
         calls the delete file callback if it exists
         :return:
@@ -117,7 +117,7 @@ class Node:
         if self._callback_delete_file is None:
             return
 
-        self._callback_delete_file(self._tag)
+        self._callback_delete_file(self._tag, file_id)
 
     def get_id(self):
         """
@@ -508,12 +508,13 @@ class ClientGUI:
         try:
             ip, port = self.__get_connection_details()
             self.start_client(ip, port)
-            result = self.clientbl.login(ui.get_value("UsernameEntry"), ui.get_value("PasswordEntry"))
+            result, user_id = self.clientbl.login(ui.get_value("UsernameEntry"), ui.get_value("PasswordEntry"))
             print(result)
-            if result != "FA1L3D":
+            if user_id != "FA1L3D":
+                self.userid = user_id
                 self.__load_project_screen()
             else:
-                self.__failed_login("Login failed, wrong password or username")
+                self.__failed_login(f"{result}")
                 self.stop_client()
         except Exception as e:
             self.__failed_login(f"Encountered error on login: {e}")
@@ -548,7 +549,7 @@ class ClientGUI:
                     ui.add_text(f"Project : None", tag="ProjectName")
                     ui.add_button(label="Load Project None", tag="ProjectLoadButton")
         except Exception as e:
-            self.__failed_login(f"Encountered error on login: {e}")
+            self.error_popup(f"Failure on project select {e}")
     
     def __on_list_press(self, sender, app_data):
         """
@@ -822,7 +823,8 @@ class ClientGUI:
         :param node_id: id of node
         :return:
         """
-        self.clientbl.delete_node(node_id, self.project_id)
+        response = self.clientbl.delete_node(node_id, self.project_id)
+        self.error_popup(response)
         self.__callback_refresh_button()
 
     def load_veins(self):

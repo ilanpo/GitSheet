@@ -27,7 +27,7 @@ class DatabaseManager:
         creates new entry in user collection stores hashed password in db
         :param user_name: username
         :param password: password
-        :return:
+        :return:bool for success, either the NAME_TAKEN_MESSAGE or the id of the new user
         """
         query = {"name": user_name}
         item = None
@@ -46,7 +46,7 @@ class DatabaseManager:
         :param owner_id: username of owner
         :param settings: dict with settings
         :param permission: list with usernames of permitted users
-        :return:
+        :return:bool for success, either the NAME_TAKEN_MESSAGE or the id of the new project
         """
         query = {"name": name}
         item = None
@@ -64,7 +64,7 @@ class DatabaseManager:
         generic fetch fot id of item in collection
         :param item_name: name of item
         :param item_collection: collection, could be "projects" "nodes" "veins" "files" "users"
-        :return:
+        :return:bool for success, either an error or the id of the item
         """
         query = {"name": item_name}
         item = None
@@ -389,6 +389,28 @@ class DatabaseManager:
 
         return veins, nodes
 
+    def fetch_permission(self, item_id, collection):
+        """
+        gets id and collection of item and returns its permissions list
+        :param item_id: db id of item
+        :param collection: collection item belongs to, can be "nodes" "veins" "projects" "files"
+        :return: permission list of item
+        """
+        try:
+            query = {"_id": item_id}
+            path_collection = {
+                "nodes": self.nodes_col,
+                "veins": self.veins_col,
+                "projects": self.projects_col,
+                "files": self.files_col
+            }
+            chosen_path = path_collection[collection]
+            item = chosen_path.find_one(query)
+            permission = item["permission"]
+            return permission
+        except:
+            return None
+
     def fetch_files(self, user_id, node_id):
         """
         list of files user can access
@@ -478,19 +500,19 @@ if __name__ == "__main__":
     DB.clear_all_in_collection("veins")
     #bool, proj_id = DB.fetch_id("GitSheet", "projects")
     #print(DB.fetch_veins_and_nodes("123", proj_id))
-    DB.new_user("123", "123")
-    DB.new_project("Git33", "1234", {"hi": "hello"}, ["123", "1234"])
+    success, userid = DB.new_user("123", "123")
+    DB.new_project("Git33", "1234", {"hi": "hello"}, [userid])
     bool, proj_id = DB.fetch_id("Git33", "projects")
     #print(proj_id)
-    node_idd, Success1 = DB.new_node(proj_id, ["123"], ["Important info334"], {"x": 160, "y": 170})
-    node_idd2, Success4 = DB.new_node(proj_id, ["123"], ["Important info DEST334"], {"x": 200, "y": 200})
-    vein_idd, Success3 = DB.new_vein(proj_id, ["123"], "Important info3332", {"origin": str(node_idd), "destination": str(node_idd2)})
+    node_idd, Success1 = DB.new_node(proj_id, [userid], ["Important info334"], {"x": 160, "y": 170})
+    node_idd2, Success4 = DB.new_node(proj_id, [userid], ["Important info DEST334"], {"x": 200, "y": 200})
+    vein_idd, Success3 = DB.new_vein(proj_id, [userid], "Important info3332", {"origin": str(node_idd), "destination": str(node_idd2)})
     #DB.remove_entry(node_idd2, "nodes", proj_id)
     #print(DB.fetch_projects("123"))
     bool, proj_id = DB.fetch_id("Git33", "projects")
     #bool, proj_id = DB.fetch_id("Git33", "projects")
     #print(DB.fetch_veins_and_nodes("123", proj_id))
-    file_idd, Success2 = DB.new_file(node_idd, ["123"], b"1001", {"name": "settings"})
+    file_idd, Success2 = DB.new_file(node_idd, [userid], b"1001", {"name": "settings"})
     #print(Success)
     #DB.push_to_dict(proj_id, "projects", "add", "4321", "permission")
     DB.print_all_in_collection("users")
@@ -498,5 +520,7 @@ if __name__ == "__main__":
     DB.print_all_in_collection("veins")
     DB.print_all_in_collection("projects")
     DB.print_all_in_collection("files")
+    print(userid)
+    print(DB.fetch_veins_and_nodes(ObjectId(userid), proj_id))
     #print(DB.fetch_files("123", ObjectId("67e2b91e9a082c22cae2e99c")))
     #print(DB.remove_entry(proj_id, "projects"))
