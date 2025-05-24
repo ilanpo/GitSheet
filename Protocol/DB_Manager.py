@@ -501,7 +501,7 @@ if __name__ == "__main__":
     #bool, proj_id = DB.fetch_id("GitSheet", "projects")
     #print(DB.fetch_veins_and_nodes("123", proj_id))
     success, userid = DB.new_user("123", "123")
-    DB.new_project("Git33", "1234", {"hi": "hello"}, [userid])
+    DB.new_project("Git33", str(userid), {"hi": "hello"}, [userid])
     bool, proj_id = DB.fetch_id("Git33", "projects")
     #print(proj_id)
     node_idd, Success1 = DB.new_node(proj_id, [userid], ["Important info334"], {"x": 160, "y": 170})

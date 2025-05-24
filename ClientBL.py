@@ -131,6 +131,8 @@ class ClientBl:
         """
         try:
             file_dir = os.path.dirname(os.path.realpath('__file__'))
+            if not os.path.exists(f"{file_dir}\\Files"):
+                os.mkdir(f"{file_dir}\\Files")
             file_name = os.path.join(file_dir, f'Files\\{file_name}')
             self.comtocol.send_sym(f"FLFT<{node_id}>{file_id}".encode())
             success, file = self.comtocol.receive_raw_sym()

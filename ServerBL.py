@@ -148,76 +148,22 @@ class ClientHandle:
 
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["update"]:
                 try:
-                    x = FAILURE_MESSAGE
                     message_start = message.split(PARAMETER_SEPARATOR)[0]
                     item_id = message_start.split(HEADER_SEPARATOR)[1]
                     item_id = ObjectId(item_id)
                     collection = message.split(PARAMETER_SEPARATOR)[1]
                     change_type = message.split(PARAMETER_SEPARATOR)[2]
                     change = message.split(PARAMETER_SEPARATOR)[3]
-                    if change_type == "settings":
-                        change = json.loads(change)
 
-                    has_permission = False
-                    if collection == "users":
-                        has_permission = True
-                    else:
-                        permission = self.DB.fetch_permission(item_id, collection)
-                        if self.user_id in permission:
-                            has_permission = True
+                    x = self.update_item_handle(item_id, collection, change_type, change)
 
-                    if has_permission:
-                        success = self.update_entry(ObjectId(item_id), collection, "replace", change, change_type)
-                        if success:
-                            x = f"Successfully updated entry {item_id} in collection {collection} with {change} in field {change_type}"
                     self.comtocol.send_sym(x)
 
                 except Exception as e:
                     self.comtocol.send_sym(f"Error updating entry: {e}".encode())
 
             if message.split(HEADER_SEPARATOR)[0] == HEADERS["fetch"]:
-                path_collection = {
-                    "projects": self.find_projects,
-                    "nodes": self.find_nodes,
-                    "veins": self.find_veins,
-                    "files": self.find_files
-                }
-                x = FAILURE_MESSAGE
-                i = 0
-                message_start = message.split(PARAMETER_SEPARATOR)[0]
-                fetch_type = message_start.split(HEADER_SEPARATOR)[1]
-                chosen_path = path_collection[fetch_type]
-                if fetch_type == "projects":
-                    found_info = chosen_path(self.user_id)
-                    if not found_info:
-                        x = FAILURE_MESSAGE
-                        x = HEADERS["fetch"] + "<" + x
-                        self.comtocol.send_sym(x.encode())
-                    else:
-                        for x in found_info:
-                            success, found_info[i] = self.serialize(x, fetch_type)
-                            i += 1
-                        found_info = json.dumps(found_info)
-                        found_info = HEADERS["fetch"] + "<" + found_info
-                        write_to_log(f"found info serialized is: {found_info}")
-                        self.comtocol.send_sym(found_info.encode())
-
-                else:
-                    col_id = message.split(PARAMETER_SEPARATOR)[1]
-                    col_id = ObjectId(col_id)
-                    found_info = chosen_path(self.user_id, col_id)
-                    if not found_info:
-                        x = FAILURE_MESSAGE
-                        x = HEADERS["fetch"] + "<" + x
-                        self.comtocol.send_sym(x.encode())
-                    else:
-                        for x in found_info:
-                            success, found_info[i] = self.serialize(x, fetch_type)
-                            i += 1
-                        found_info = json.dumps(found_info)
-                        found_info = HEADERS["fetch"] + "<" + found_info
-                        write_to_log(f"found info serialized is: {found_info}")
-                        self.comtocol.send_sym(found_info.encode())
+                self.fetch_handle(message)
 
         except Exception as e:
             write_to_log(f"[ClientHandle] Exception on handle message {e}")
@@ -262,6 +208,83 @@ class ClientHandle:
             self.comtocol.send_sym("delete successful".encode())
         else:
             raise Exception("User has no permission to delete this item")
+
+    def update_item_handle(self, item_id, collection, change_type, change):
+        """
+        changes a field in an entry in the db if the user has permission to
+        :param item_id: the id of the item were changing
+        :param collection: the collection in which the item were changing is
+        :param change_type: the field were changing
+        :param change: the change to the field
+        :return: either a FAILURE_MESSAGE if it failed or a message to send to the client showing success
+        """
+        x = FAILURE_MESSAGE
+        if change_type == "settings":
+            change = json.loads(change)
+
+        has_permission = False
+        if collection == "users":
+            has_permission = True
+        else:
+            permission = self.DB.fetch_permission(item_id, collection)
+            if self.user_id in permission:
+                has_permission = True
+
+        if has_permission:
+            success = self.update_entry(ObjectId(item_id), collection, "replace", change, change_type)
+            if success:
+                x = f"Successfully updated entry {item_id} in collection {collection} with {change} in field {change_type}"
+        return x
+
+    def fetch_handle(self, message):
+        """
+        This takes a message and according to the instructions specified fetches a list of items and sends them to client
+        :param message: message has to include the fetch_type which is the collection were fetching from and if it's not
+        projects it has to include the id of the parent collection
+        :return:
+        """
+        path_collection = {
+            "projects": self.find_projects,
+            "nodes": self.find_nodes,
+            "veins": self.find_veins,
+            "files": self.find_files
+        }
+        x = FAILURE_MESSAGE
+        i = 0
+        message_start = message.split(PARAMETER_SEPARATOR)[0]
+        fetch_type = message_start.split(HEADER_SEPARATOR)[1]
+        chosen_path = path_collection[fetch_type]
+        if fetch_type == "projects":
+            found_info = chosen_path(self.user_id)
+            if not found_info:
+                x = FAILURE_MESSAGE
+                x = HEADERS["fetch"] + "<" + x
+                self.comtocol.send_sym(x.encode())
+            else:
+                for x in found_info:
+                    success, found_info[i] = self.serialize(x, fetch_type)
+                    i += 1
+                found_info = json.dumps(found_info)
+                found_info = HEADERS["fetch"] + "<" + found_info
+                write_to_log(f"found info serialized is: {found_info}")
+                self.comtocol.send_sym(found_info.encode())
+
+        else:
+            col_id = message.split(PARAMETER_SEPARATOR)[1]
+            col_id = ObjectId(col_id)
+            found_info = chosen_path(self.user_id, col_id)
+            if not found_info:
+                x = FAILURE_MESSAGE
+                x = HEADERS["fetch"] + "<" + x
+                self.comtocol.send_sym(x.encode())
+            else:
+                for x in found_info:
+                    success, found_info[i] = self.serialize(x, fetch_type)
+                    i += 1
+                found_info = json.dumps(found_info)
+                found_info = HEADERS["fetch"] + "<" + found_info
+                write_to_log(f"found info serialized is: {found_info}")
+                self.comtocol.send_sym(found_info.encode())
 
     def serialize(self, document_info: dict, fetch_type: str):
         """

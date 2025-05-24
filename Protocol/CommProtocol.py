@@ -45,7 +45,7 @@ class EncryptProtocol:
 
     def encrypt_asymmetric(self, content: bytes) -> tuple:
         """
-        encrypts a message using rsa
+        encrypts a message using RSA
         :param content: message in bytes
         :return: bool for success and the encrypted result
         """
@@ -67,7 +67,7 @@ class EncryptProtocol:
 
     def decrypt_asymmetric(self, cryptid: bytes) -> tuple:
         """
-        decrypts a message using rsa
+        decrypts a message using RSA
         :param cryptid: encrypted message in bytes
         :return: bool for success and the decrypted result
         """
